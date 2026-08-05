@@ -1,35 +1,33 @@
-// Dashboard de análisis de productos.
-// Guardado permanente en TU repo de GitHub (una carpeta data/products/ con un archivo por producto).
-// Requiere en producción: GH_TOKEN (token de GitHub con permiso de Contents) y GH_REPO ("owner/repo").
-// Sin GH_TOKEN usa un archivo local products.json (solo para pruebas).
+// Servidor para varias "colecciones" (products, tiendas, …).
+// Guarda cada registro como un archivo en TU repo de GitHub: data/{coleccion}/{id}.json
+// Producción: GH_TOKEN (token con permiso Contents) + GH_REPO ("owner/repo").
+// Sin GH_TOKEN usa archivos locales data-{coleccion}.json (solo pruebas).
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 4000;
-const DATA_FILE = path.join(__dirname, 'products.json');
-
 const GH = {
   token: process.env.GH_TOKEN,
-  repo: process.env.GH_REPO,                 // ej. "sofiasuarezinv-gif/an-lisis-producto"
+  repo: process.env.GH_REPO,
   branch: process.env.GH_BRANCH || 'main',
-  dir: (process.env.GH_DIR || 'data/products').replace(/\/+$/, ''),
+  base: (process.env.GH_DIR || 'data').replace(/\/+$/, ''),
 };
 const useGH = !!(GH.token && GH.repo);
 
-let cache = {}; // { pid: { data, created_at, updated_at, _sha? } }
+const cache = {};   // cache[coleccion] = { id: { data, created_at, updated_at, _sha? } }
+const loaded = {};
+const validColl = (c) => /^[a-z0-9_-]{1,40}$/.test(c);
 
-// ─────────────── GitHub API ───────────────
-function ghHeaders() {
-  return {
-    'Authorization': 'Bearer ' + GH.token,
-    'Accept': 'application/vnd.github+json',
-    'User-Agent': 'analisis-productos',
-    'X-GitHub-Api-Version': '2022-11-28',
-    'Content-Type': 'application/json',
-  };
-}
+// ─────────── GitHub ───────────
+const ghHeaders = () => ({
+  'Authorization': 'Bearer ' + GH.token,
+  'Accept': 'application/vnd.github+json',
+  'User-Agent': 'seguimiento-app',
+  'X-GitHub-Api-Version': '2022-11-28',
+  'Content-Type': 'application/json',
+});
 async function ghApi(method, repoPath, body, allow404) {
   const q = method === 'GET' ? `?ref=${encodeURIComponent(GH.branch)}` : '';
   const url = `https://api.github.com/repos/${GH.repo}/contents/${repoPath}${q}`;
@@ -41,70 +39,69 @@ async function ghApi(method, repoPath, body, allow404) {
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const newId = () => Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
 const recJson = (r) => JSON.stringify({ data: r.data, created_at: r.created_at, updated_at: r.updated_at });
+const localFile = (coll) => path.join(__dirname, `data-${coll}.json`);
+const writeLocal = (coll) => {
+  const clean = {};
+  for (const [id, r] of Object.entries(cache[coll])) clean[id] = { data: r.data, created_at: r.created_at, updated_at: r.updated_at };
+  fs.writeFileSync(localFile(coll), JSON.stringify(clean));
+};
 
-// ─────────────── Carga inicial ───────────────
-async function loadInitial() {
+async function ensureLoaded(coll) {
+  if (loaded[coll]) return;
+  cache[coll] = {};
   if (useGH) {
-    const dir = await ghApi('GET', GH.dir, null, true);
+    const dir = await ghApi('GET', `${GH.base}/${coll}`, null, true);
     if (Array.isArray(dir)) {
       for (const item of dir) {
         if (item.type === 'file' && item.name.endsWith('.json')) {
           try {
             const f = await ghApi('GET', item.path);
             const rec = JSON.parse(Buffer.from(f.content, 'base64').toString('utf8'));
-            cache[item.name.replace(/\.json$/, '')] = { ...rec, _sha: f.sha };
-          } catch (e) { console.error('No pude leer', item.name, e.message); }
+            cache[coll][item.name.replace(/\.json$/, '')] = { ...rec, _sha: f.sha };
+          } catch (e) { console.error('leer', item.name, e.message); }
         }
       }
     }
-    console.log(`Almacenamiento: GitHub (${GH.repo}/${GH.dir}). Productos: ${Object.keys(cache).length}`);
   } else {
-    try { cache = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8') || '{}'); } catch { cache = {}; }
-    console.log('Almacenamiento: archivo local products.json (solo pruebas)');
+    try { cache[coll] = JSON.parse(fs.readFileSync(localFile(coll), 'utf8') || '{}'); } catch { cache[coll] = {}; }
   }
+  loaded[coll] = true;
 }
-const writeLocal = () => {
-  const clean = {};
-  for (const [pid, r] of Object.entries(cache)) clean[pid] = { data: r.data, created_at: r.created_at, updated_at: r.updated_at };
-  fs.writeFileSync(DATA_FILE, JSON.stringify(clean));
-};
-
-// ─────────────── Operaciones ───────────────
-function listProducts() {
-  return Object.entries(cache)
-    .map(([pid, r]) => ({ pid, ...r.data, _created: r.created_at, _updated: r.updated_at }))
+function listItems(coll) {
+  return Object.entries(cache[coll] || {})
+    .map(([id, r]) => ({ pid: id, ...r.data, _created: r.created_at, _updated: r.updated_at }))
     .sort((a, b) => (b._created || '').localeCompare(a._created || ''));
 }
-async function saveToBackend(pid) {
-  const r = cache[pid];
+async function saveBackend(coll, id) {
+  const r = cache[coll][id];
   if (useGH) {
-    const body = { message: `producto ${pid}`, content: b64(recJson(r)), branch: GH.branch };
+    const body = { message: `${coll} ${id}`, content: b64(recJson(r)), branch: GH.branch };
     if (r._sha) body.sha = r._sha;
-    const res = await ghApi('PUT', `${GH.dir}/${pid}.json`, body);
+    const res = await ghApi('PUT', `${GH.base}/${coll}/${id}.json`, body);
     r._sha = res.content.sha;
-  } else writeLocal();
+  } else writeLocal(coll);
 }
-async function createProduct(data) {
-  const pid = newId(); const now = new Date().toISOString();
-  cache[pid] = { data, created_at: now, updated_at: now };
-  await saveToBackend(pid);
-  return { pid, ...data, _created: now, _updated: now };
+async function createItem(coll, data) {
+  const id = newId(); const now = new Date().toISOString();
+  cache[coll][id] = { data, created_at: now, updated_at: now };
+  await saveBackend(coll, id);
+  return { pid: id, ...data, _created: now, _updated: now };
 }
-async function updateProduct(pid, data) {
-  if (!cache[pid]) return null;
-  cache[pid].data = data; cache[pid].updated_at = new Date().toISOString();
-  await saveToBackend(pid);
-  return { pid, ...data, _updated: cache[pid].updated_at };
+async function updateItem(coll, id, data) {
+  if (!cache[coll][id]) return null;
+  cache[coll][id].data = data; cache[coll][id].updated_at = new Date().toISOString();
+  await saveBackend(coll, id);
+  return { pid: id, ...data, _updated: cache[coll][id].updated_at };
 }
-async function deleteProduct(pid) {
-  const r = cache[pid]; if (!r) return false;
-  if (useGH) await ghApi('DELETE', `${GH.dir}/${pid}.json`, { message: `borrar ${pid}`, sha: r._sha, branch: GH.branch });
-  delete cache[pid];
-  if (!useGH) writeLocal();
+async function deleteItem(coll, id) {
+  const r = cache[coll][id]; if (!r) return false;
+  if (useGH) await ghApi('DELETE', `${GH.base}/${coll}/${id}.json`, { message: `borrar ${id}`, sha: r._sha, branch: GH.branch });
+  delete cache[coll][id];
+  if (!useGH) writeLocal(coll);
   return true;
 }
 
-// ─────────────── Servidor HTTP ───────────────
+// ─────────── HTTP ───────────
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript', '.css': 'text/css', '.ico': 'image/x-icon' };
 const sendJson = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
 function readBody(req) {
@@ -115,29 +112,36 @@ function readBody(req) {
     req.on('error', reject);
   });
 }
+const PAGES = { '/': 'index.html', '/tiendas': 'tiendas.html', '/productos': 'index.html' };
+
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   try {
-    if (url === '/api/products' && req.method === 'GET') return sendJson(res, 200, listProducts());
-    if (url === '/api/products' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!body || !body.data) return sendJson(res, 400, { error: 'faltan datos' });
-      return sendJson(res, 201, await createProduct(body.data));
+    const mList = url.match(/^\/api\/([a-z0-9_-]+)$/);
+    const mItem = url.match(/^\/api\/([a-z0-9_-]+)\/([^/]+)$/);
+    if (mList && validColl(mList[1])) {
+      const coll = mList[1]; await ensureLoaded(coll);
+      if (req.method === 'GET') return sendJson(res, 200, listItems(coll));
+      if (req.method === 'POST') {
+        const body = await readBody(req);
+        if (!body || !body.data) return sendJson(res, 400, { error: 'faltan datos' });
+        return sendJson(res, 201, await createItem(coll, body.data));
+      }
     }
-    const m = url.match(/^\/api\/products\/([^/]+)$/);
-    if (m) {
-      const pid = decodeURIComponent(m[1]);
+    if (mItem && validColl(mItem[1])) {
+      const coll = mItem[1], id = decodeURIComponent(mItem[2]); await ensureLoaded(coll);
       if (req.method === 'PUT') {
         const body = await readBody(req);
-        const upd = await updateProduct(pid, body.data);
+        const upd = await updateItem(coll, id, body.data);
         return upd ? sendJson(res, 200, upd) : sendJson(res, 404, { error: 'no existe' });
       }
       if (req.method === 'DELETE') {
-        const ok = await deleteProduct(pid);
+        const ok = await deleteItem(coll, id);
         return ok ? sendJson(res, 200, { ok: true }) : sendJson(res, 404, { error: 'no existe' });
       }
     }
-    let file = url === '/' ? '/index.html' : url;
+
+    let file = PAGES[url] ? '/' + PAGES[url] : url;
     const fp = path.join(__dirname, path.normalize(file).replace(/^(\.\.[/\\])+/, ''));
     if (fs.existsSync(fp) && fs.statSync(fp).isFile()) {
       res.writeHead(200, { 'Content-Type': MIME[path.extname(fp)] || 'text/plain' });
@@ -149,6 +153,5 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-loadInitial()
-  .catch(e => console.error('Aviso al cargar datos iniciales:', e.message))
-  .finally(() => server.listen(PORT, () => console.log(`Dashboard productos en http://localhost:${PORT}`)));
+const modo = useGH ? `GitHub (${GH.repo})` : 'archivos locales (pruebas)';
+server.listen(PORT, () => console.log(`App en http://localhost:${PORT} — almacenamiento: ${modo}`));

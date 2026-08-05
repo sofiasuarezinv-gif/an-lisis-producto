@@ -114,6 +114,7 @@
   <div class="tabs">
     <div class="tab active" id="tab-add" onclick="showTab('add')">➕ Agregar producto</div>
     <div class="tab" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
+    <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
   </div>
 
   <!-- AGREGAR -->
@@ -138,6 +139,15 @@
       <span class="count" id="listcount"></span>
     </div>
     <div id="pgrid" class="pgrid"></div>
+  </div>
+
+  <!-- REPORTE DE TESTEOS -->
+  <div id="view-report" style="display:none">
+    <div class="toolbar">
+      <label style="font-size:13px;color:var(--sub)">Mes <select id="rep-month" onchange="renderReport()"></select></label>
+      <span class="count" id="rep-total"></span>
+    </div>
+    <div id="rep-body"></div>
   </div>
 </div>
 
@@ -175,8 +185,6 @@ const MAND = [
 ];
 const SECTIONS = [
   {title:'Info principal', icon:'📋', fields:[
-    {key:'fecha', label:'Fecha', type:'date'},
-    {key:'fecha_pauta', label:'Fecha pauta', type:'date'},
     {key:'stock_privado', label:'¿Stock privado?', type:'select', opts:['','No','Sí']},
     {key:'prov_verificado', label:'Proveedor verificado', type:'select', opts:['','Sí','No']},
     {key:'precio_venta', label:'Precio de venta', type:'text'},
@@ -242,6 +250,13 @@ const SECTIONS = [
     {key:'combo_obseq', label:'¿Se puede obsequiar?', type:'select', opts:['','Sí','No']},
     {key:'combo_cpa', label:'CPA Breakeven (combo)', type:'money'},
   ]},
+  {title:'Desarrollo de producto', icon:'🚀', fields:[
+    {key:'angulos_venta', label:'Ángulos de venta', type:'textarea'},
+    {key:'beneficios', label:'Beneficios', type:'textarea'},
+    {key:'caracteristicas', label:'Características', type:'textarea'},
+    {key:'garantia_dev', label:'Garantía', type:'text'},
+    {key:'notas_dev', label:'Notas importantes', type:'textarea'},
+  ]},
 ];
 const ALLFIELDS = [...MAND, ...SECTIONS.flatMap(s => s.fields)];
 
@@ -296,6 +311,7 @@ function buildForm(pref, data){
       ${fieldHtml(MAND[0], data.foto, pref)}
       ${MAND.slice(1).map(f=>fieldHtml(f, data[f.key], pref)).join('')}
     </div></div></div>`;
+  html += fechasBlock(pref, data);
   html += SECTIONS.map((s,i)=>`
     <div class="card" style="margin:0;border-radius:0;border-top:1px solid var(--line)">
       <div class="sec-h closed" onclick="toggleSec(this)">${s.icon} ${s.title}<span class="chev">▾</span></div>
@@ -305,12 +321,51 @@ function buildForm(pref, data){
 }
 function toggleSec(h){ h.classList.toggle('closed'); h.nextElementSibling.classList.toggle('hide'); }
 
+// Bloque siempre visible: fechas + estado de testeo
+function testeoBadge(data){
+  return data && data.testeado==='si'
+    ? `<span class="chip" style="color:var(--green);border-color:rgba(52,211,153,.4)">✅ Testeado${data.fecha_testeo?(' · '+esc(data.fecha_testeo)):''}</span>`
+    : `<span class="chip" style="color:var(--sub)">🕓 En cola</span>`;
+}
+function fechasBlock(pref, data){
+  data=data||{};
+  const on = data.testeado==='si';
+  return `<div class="card" style="margin:0;border-radius:0;border-top:1px solid var(--line)">
+    <div class="sec-h" style="cursor:default">📅 Fechas y testeo</div>
+    <div class="sec-b">
+      <div class="grid">
+        <div class="field"><label>Fecha (cuándo lo encontraste)</label><input type="date" id="${pref}fecha" value="${esc(data.fecha||'')}"></div>
+        <div class="field"><label>Fecha de pauta</label><input type="date" id="${pref}fecha_pauta" value="${esc(data.fecha_pauta||'')}"></div>
+      </div>
+      <div class="field" style="margin-top:4px">
+        <label>Estado de testeo</label>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink);font-size:14px;margin:0">
+            <input type="checkbox" id="${pref}testeado" ${on?'checked':''} onchange="onTesteo('${pref}')" style="width:auto"> Marcar como testeado
+          </label>
+          <input type="date" id="${pref}fecha_testeo" value="${esc(data.fecha_testeo||'')}" onchange="onTesteo('${pref}')" style="display:${on?'inline-block':'none'};width:auto">
+          <span id="${pref}testeo-badge">${testeoBadge(data)}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+function onTesteo(pref){
+  const c=document.getElementById(pref+'testeado'), d=document.getElementById(pref+'fecha_testeo'), b=document.getElementById(pref+'testeo-badge');
+  if(c.checked){ if(!d.value) d.value=new Date().toISOString().slice(0,10); d.style.display='inline-block'; }
+  else { d.style.display='none'; }
+  b.innerHTML=testeoBadge({testeado:c.checked?'si':'', fecha_testeo:d.value});
+}
+
 function collect(pref){
   const o={};
   ALLFIELDS.forEach(f=>{
     if(f.type==='image'){ o.foto = document.getElementById(pref+'foto').value || ''; return; }
     const el=document.getElementById(pref+f.key); if(el) o[f.key]=el.value.trim();
   });
+  ['fecha','fecha_pauta','fecha_testeo'].forEach(k=>{ const el=document.getElementById(pref+k); if(el) o[k]=el.value.trim(); });
+  const tc=document.getElementById(pref+'testeado'); o.testeado = tc && tc.checked ? 'si' : '';
+  if(o.testeado!=='si') o.fecha_testeo='';
   return o;
 }
 function markMissing(pref, data){
@@ -359,8 +414,11 @@ function renderList(){
     <div class="pcard" onclick="abrir('${p.pid}')">
       <div class="thumb">${p.foto?`<img src="${p.foto}">`:'📷'}</div>
       <div class="body">
-        <h3>${esc(p.nombre)||'(sin nombre)'}</h3>
-        <div style="font-size:12px;color:var(--sub)">ID: ${esc(p.id)||'—'}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <h3 style="margin:0">${esc(p.nombre)||'(sin nombre)'}</h3>
+          ${testeoBadge(p)}
+        </div>
+        <div style="font-size:12px;color:var(--sub);margin-top:4px">ID: ${esc(p.id)||'—'}</div>
         <div class="meta">
           ${p.precio_proveedor?`<span class="chip price">Prov: $${esc(p.precio_proveedor)}</span>`:''}
           ${p.stock?`<span class="chip stock">Stock: ${esc(p.stock)}</span>`:''}
@@ -403,9 +461,59 @@ async function borrar(){
 function showTab(t){
   $('#view-add').style.display = t==='add'?'':'none';
   $('#view-list').style.display = t==='list'?'':'none';
+  $('#view-report').style.display = t==='report'?'':'none';
   $('#tab-add').classList.toggle('active',t==='add');
   $('#tab-list').classList.toggle('active',t==='list');
+  $('#tab-report').classList.toggle('active',t==='report');
   if(t==='list') load();
+  if(t==='report') loadReport();
+}
+
+// ─── Reporte de testeos (por semana lun–dom, dentro del mes) ───
+async function loadReport(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} buildMonthSelect(); renderReport(); }
+function mondayOf(dstr){ const d=new Date(dstr+'T00:00:00'); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); return d; }
+function fmtDia(d){ return d.toISOString().slice(0,10); }
+function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
+const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function nombreMes(ym){ const [y,m]=ym.split('-'); return MESES[+m-1]+' '+y; }
+
+function buildMonthSelect(){
+  const sel=$('#rep-month'); const prev=sel.value;
+  const meses=[...new Set(PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo).map(p=>p.fecha_testeo.slice(0,7)))].sort().reverse();
+  if(!meses.length){ sel.innerHTML='<option value="">— sin testeos —</option>'; return; }
+  sel.innerHTML=meses.map(m=>`<option value="${m}" ${m===prev?'selected':''}>${nombreMes(m)}</option>`).join('');
+  if(!prev || !meses.includes(prev)) sel.value=meses[0];
+}
+function renderReport(){
+  const month=$('#rep-month').value;
+  const body=$('#rep-body');
+  const tested=PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo&&p.fecha_testeo.slice(0,7)===month);
+  if(!month){ body.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="big">📊</div>Todavía no marcaste ningún producto como testeado.<br>Cuando marques uno con su fecha, aparece acá el reporte por semana.</div>`; $('#rep-total').textContent=''; return; }
+  $('#rep-total').textContent=`${tested.length} testeo${tested.length===1?'':'s'} en ${nombreMes(month)}`;
+  if(!tested.length){ body.innerHTML=`<div class="empty">Sin testeos en ${nombreMes(month)}.</div>`; return; }
+  // agrupar por semana (lunes)
+  const groups={};
+  tested.forEach(p=>{ const k=fmtDia(mondayOf(p.fecha_testeo)); (groups[k]=groups[k]||[]).push(p); });
+  const [y,m]=month.split('-').map(Number);
+  const primerDia=`${month}-01`, ultimoDia=new Date(y,m,0).toISOString().slice(0,10);
+  const semanas=Object.keys(groups).sort();
+  body.innerHTML=semanas.map((monKey,idx)=>{
+    const lun=new Date(monKey+'T00:00:00'), dom=addDays(lun,6);
+    // recortar el rango al mes (no mostrar fechas de otros meses)
+    const ini=fmtDia(lun)<primerDia?primerDia:fmtDia(lun);
+    const fin=fmtDia(dom)>ultimoDia?ultimoDia:fmtDia(dom);
+    const prods=groups[monKey].sort((a,b)=>a.fecha_testeo.localeCompare(b.fecha_testeo));
+    return `<div class="card" style="padding:16px 18px;margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+        <strong style="color:var(--brand2)">Semana ${idx+1} · ${ini.slice(5)} al ${fin.slice(5)}</strong>
+        <span class="chip stock">${prods.length} testeado${prods.length===1?'':'s'}</span>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:13.5px">
+        <thead><tr><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Producto</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Fecha testeo</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">ID</th></tr></thead>
+        <tbody>${prods.map(p=>`<tr><td style="padding:8px 10px;border-bottom:1px solid var(--dim)">${esc(p.nombre)||'—'}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim)">${esc(p.fecha_testeo)}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim);color:var(--sub)">${esc(p.id)||'—'}</td></tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+  }).join('');
 }
 function exportar(){
   const blob=new Blob([JSON.stringify(PRODUCTS,null,2)],{type:'application/json'});

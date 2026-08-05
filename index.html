@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis de Productos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg0:#0a0b12;--bg1:#12141f;--bg2:#1a1d2b;--bg3:#232739;
+    --line:#2b3048;--ink:#e7eaf3;--sub:#98a0b8;--dim:rgba(255,255,255,.06);
+    --brand:#7c5cff;--brand2:#a78bfa;--cyan:#38bdf8;--green:#34d399;--amber:#f59e0b;--red:#f87171;--pink:#f472b6;
+    --shadow:0 20px 45px -22px rgba(0,0,0,.75);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 82% -10%,rgba(124,92,255,.14),transparent 60%),radial-gradient(900px 500px at 0% 110%,rgba(56,189,248,.08),transparent 55%),var(--bg0);color:var(--ink);font-family:"Inter",system-ui,sans-serif;font-size:15px;-webkit-font-smoothing:antialiased}
+  a{color:var(--brand2)}
+  .wrap{max-width:1200px;margin:0 auto;padding:26px 22px 60px}
+
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(140deg,var(--brand),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:var(--shadow)}
+  .brand h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+  .brand p{margin:0;font-size:12px;color:var(--sub)}
+  .hbtns{display:flex;gap:8px;flex-wrap:wrap}
+  .hbtns button{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:8px 12px;border-radius:9px;font:600 12.5px "Inter";cursor:pointer}
+  .hbtns button:hover{color:var(--ink);border-color:var(--brand)}
+
+  .tabs{display:flex;gap:8px;margin-bottom:22px}
+  .tab{display:flex;align-items:center;gap:8px;background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:11px 20px;border-radius:12px;font:700 14px "Inter";cursor:pointer;transition:.15s}
+  .tab:hover{color:var(--ink)}
+  .tab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .tab .badge{background:rgba(255,255,255,.18);border-radius:20px;padding:1px 8px;font-size:11px}
+
+  .card{background:var(--bg1);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .sec-h{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;padding:16px 20px;cursor:pointer;user-select:none}
+  .sec-h .chev{margin-left:auto;color:var(--sub);transition:transform .2s}
+  .sec-h.closed .chev{transform:rotate(-90deg)}
+  .sec-b{padding:4px 20px 20px}
+  .sec-b.hide{display:none}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px 18px}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;font-weight:600}
+  .field label .req{color:var(--brand2)}
+  .field input,.field select,.field textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
+  .field textarea{min-height:64px;resize:vertical;line-height:1.45}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
+  .field.miss input,.field.miss select{border-color:var(--red)}
+
+  .mand{background:linear-gradient(160deg,rgba(124,92,255,.10),rgba(18,20,31,.4));border-color:var(--brand)}
+  .mand .sec-h{color:var(--brand2)}
+
+  /* Foto */
+  .photo{grid-column:1/-1;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .drop{width:150px;height:150px;border:2px dashed var(--line);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;color:var(--sub);text-align:center;font-size:12px;background:var(--bg2);overflow:hidden;position:relative}
+  .drop:hover{border-color:var(--brand)}
+  .drop img{width:100%;height:100%;object-fit:cover}
+  .drop.miss{border-color:var(--red)}
+  .photo .hint{font-size:12px;color:var(--sub);max-width:260px}
+
+  .actions{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}
+  .btn{background:var(--brand);border:none;color:#fff;padding:12px 22px;border-radius:11px;font:700 14.5px "Inter";cursor:pointer}
+  .btn:hover{filter:brightness(1.08)}
+  .btn.ghost{background:var(--bg2);border:1px solid var(--line);color:var(--ink)}
+  .btn.danger{background:transparent;border:1px solid var(--red);color:var(--red)}
+  .msg{font-size:13px;font-weight:600}
+  .msg.ok{color:var(--green)} .msg.err{color:var(--red)}
+
+  /* Productos */
+  .toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+  .toolbar input{flex:1;min-width:200px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:500 14px "Inter";outline:none}
+  .toolbar input:focus{border-color:var(--brand)}
+  .count{font-size:13px;color:var(--sub)}
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+  .pcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.15s;display:flex;flex-direction:column}
+  .pcard:hover{border-color:var(--brand);transform:translateY(-2px)}
+  .pcard .thumb{height:150px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:34px}
+  .pcard .thumb img{width:100%;height:100%;object-fit:cover}
+  .pcard .body{padding:12px 14px}
+  .pcard .body h3{margin:0 0 6px;font-size:15px;font-weight:700;line-height:1.25}
+  .pcard .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--bg3);color:var(--sub);border:1px solid var(--line)}
+  .chip.price{color:var(--green);border-color:rgba(52,211,153,.35)}
+  .chip.stock{color:var(--cyan);border-color:rgba(56,189,248,.35)}
+  .empty{text-align:center;color:var(--sub);padding:60px 20px}
+  .empty .big{font-size:40px;margin-bottom:10px}
+
+  /* Modal */
+  .overlay{position:fixed;inset:0;background:rgba(4,5,10,.72);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:32px 16px;overflow-y:auto;z-index:50}
+  .overlay.show{display:flex}
+  .modal{width:100%;max-width:920px;background:var(--bg1);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+  .modal-h{display:flex;align-items:center;gap:14px;padding:18px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg1);border-radius:18px 18px 0 0}
+  .modal-h .x{margin-left:auto;background:var(--bg2);border:1px solid var(--line);color:var(--sub);width:34px;height:34px;border-radius:9px;cursor:pointer;font-size:16px}
+  .modal-b{padding:20px 22px}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--brand);color:var(--ink);padding:12px 20px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;z-index:80}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo">🛒</div>
+      <div><h1>Análisis de Productos</h1><p>Investigación de productos · guardado permanente</p></div>
+    </div>
+    <div class="hbtns">
+      <button onclick="exportar()">⬇️ Respaldo</button>
+      <button onclick="document.getElementById('imp').click()">⬆️ Importar</button>
+      <input type="file" id="imp" accept="application/json" style="display:none" onchange="importar(event)">
+    </div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" id="tab-add" onclick="showTab('add')">➕ Agregar producto</div>
+    <div class="tab" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
+  </div>
+
+  <!-- AGREGAR -->
+  <div id="view-add">
+    <form id="form" class="card" style="padding:0" onsubmit="return false">
+      <div id="form-body"></div>
+      <div style="padding:0 20px 22px">
+        <div class="actions">
+          <button class="btn" onclick="guardar()">💾 Guardar producto</button>
+          <button class="btn ghost" type="button" onclick="limpiar()">Limpiar</button>
+          <span class="msg" id="save-msg"></span>
+        </div>
+        <p style="color:var(--sub);font-size:12px;margin:10px 0 0">Los campos con <span style="color:var(--brand2)">*</span> son obligatorios. El resto lo podés completar ahora o después (se guarda igual).</p>
+      </div>
+    </form>
+  </div>
+
+  <!-- PRODUCTOS -->
+  <div id="view-list" style="display:none">
+    <div class="toolbar">
+      <input id="search" placeholder="🔎 Buscar por nombre, ID, proveedor…" oninput="renderList()">
+      <span class="count" id="listcount"></span>
+    </div>
+    <div id="pgrid" class="pgrid"></div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE / EDITAR -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)cerrar()">
+  <div class="modal">
+    <div class="modal-h">
+      <strong id="modal-title" style="font-size:16px">Producto</strong>
+      <button class="x" onclick="cerrar()">✕</button>
+    </div>
+    <div class="modal-b">
+      <div id="modal-body"></div>
+      <div class="actions">
+        <button class="btn" onclick="guardarEdicion()">💾 Guardar cambios</button>
+        <button class="btn ghost" type="button" onclick="cerrar()">Cerrar</button>
+        <button class="btn danger" type="button" onclick="borrar()" style="margin-left:auto">🗑️ Eliminar</button>
+        <span class="msg" id="edit-msg"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Esquema (columna A = secciones · columna B = campos) ───
+const MAND = [
+  {key:'foto', label:'Foto del producto', type:'image'},
+  {key:'nombre', label:'Nombre del producto', type:'text'},
+  {key:'id', label:'ID', type:'text'},
+  {key:'precio_proveedor', label:'Precio proveedor', type:'money'},
+  {key:'stock', label:'Stock', type:'number'},
+  {key:'nombre_proveedor', label:'Nombre del proveedor', type:'text'},
+  {key:'numero_proveedor', label:'Número del proveedor', type:'text'},
+];
+const SECTIONS = [
+  {title:'Info principal', icon:'📋', fields:[
+    {key:'fecha', label:'Fecha', type:'date'},
+    {key:'fecha_pauta', label:'Fecha pauta', type:'date'},
+    {key:'stock_privado', label:'¿Stock privado?', type:'select', opts:['','No','Sí']},
+    {key:'prov_verificado', label:'Proveedor verificado', type:'select', opts:['','Sí','No']},
+    {key:'precio_venta', label:'Precio de venta', type:'text'},
+    {key:'ganancia', label:'Ganancia por producto', type:'money'},
+    {key:'cpa_be', label:'CPA Breakeven', type:'money'},
+    {key:'link_landing', label:'Link landing', type:'url'},
+    {key:'lugares_envio', label:'Lugares con envío más rápido', type:'text'},
+    {key:'estrategia_landing', label:'Estrategia landing', type:'textarea'},
+    {key:'insumos_ads', label:'Insumos ads', type:'text'},
+    {key:'que_falta', label:'¿Qué falta?', type:'textarea'},
+    {key:'notas', label:'Notas', type:'textarea'},
+    {key:'entregado', label:'Entregado a consultoría', type:'select', opts:['','Sí','En proceso','No']},
+    {key:'aprobado', label:'Aprobado', type:'select', opts:['','Sí','Masomenos','En proceso','No']},
+  ]},
+  {title:'Filtro', icon:'🔎', fields:[
+    {key:'necesidad', label:'¿Qué necesidad suple?', type:'textarea'},
+    {key:'cant_prov', label:'Cantidad proveedores', type:'text'},
+    {key:'cant_comp', label:'Cantidad competidores', type:'text'},
+    {key:'facil_tienda', label:'¿Se consigue fácil en tienda?', type:'select', opts:['','No','Sí']},
+    {key:'valor_percibido', label:'Valor percibido (justifica precio)', type:'select', opts:['','Sí','Masomenos','No']},
+    {key:'wow', label:'Efecto WOW', type:'select', opts:['','Sí','Masomenos','No']},
+    {key:'confiable', label:'Producto confiable', type:'select', opts:['','Sí','Masomenos','No']},
+    {key:'black', label:'Black', type:'select', opts:['','No','Sí']},
+    {key:'facil_uso', label:'Fácil uso', type:'select', opts:['','Sí','No']},
+    {key:'publico_amplio', label:'¿Público amplio?', type:'select', opts:['','Sí','No']},
+    {key:'devolucion', label:'¿Posible devolución?', type:'select', opts:['','No','Masomenos','Sí']},
+    {key:'recurrente', label:'¿De uso recurrente?', type:'select', opts:['','Sí','No']},
+    {key:'anuncio_validado', label:'Anuncio validado (link)', type:'textarea'},
+    {key:'facil_danar', label:'¿Fácil de dañar en transporte?', type:'select', opts:['','No','Masomenos','Sí']},
+  ]},
+  {title:'Competencia', icon:'🥊', fields:[
+    {key:'id_dropi_sim', label:'ID Dropi similares', type:'textarea'},
+    {key:'id_anuncios_comp', label:'ID anuncios competidores', type:'textarea'},
+    {key:'link_comp', label:'Link competencia', type:'textarea'},
+    {key:'hace_cuanto', label:'¿Hace cuánto pautan?', type:'text'},
+    {key:'precios_comp', label:'Precios competencia', type:'text'},
+    {key:'comp_wpp', label:'Competidores a WhatsApp', type:'text'},
+    {key:'comp_fb', label:'Competidores a FB', type:'text'},
+  ]},
+  {title:'Análisis de mercado', icon:'📈', fields:[
+    {key:'link_amazon', label:'Link Amazon / MercadoLibre', type:'textarea'},
+    {key:'link_ali', label:'Link AliExpress', type:'url'},
+    {key:'resenas', label:'Reseñas', type:'text'},
+    {key:'doc', label:'Doc', type:'text'},
+  ]},
+  {title:'Proveedores', icon:'🏭', fields:[
+    {key:'stock_confirmado', label:'¿Stock confirmado?', type:'select', opts:['','Sí','En proceso','No']},
+    {key:'cantidad', label:'Cantidad', type:'text'},
+    {key:'tiempo_resp', label:'Tiempo de respuesta', type:'text'},
+    {key:'fotos_prod', label:'Fotos producto', type:'text'},
+    {key:'videos_prod', label:'Videos producto', type:'text'},
+    {key:'garantia', label:'Garantía por días', type:'text'},
+    {key:'horario_atencion', label:'Horario de atención', type:'textarea'},
+    {key:'horario_guias', label:'Horarios de generación de guías', type:'text'},
+    {key:'transportadoras', label:'Transportadoras', type:'text'},
+    {key:'hora_recoge', label:'Hora en que recogen', type:'text'},
+    {key:'tiempo_despacho', label:'Tiempo de despacho', type:'text'},
+  ]},
+  {title:'Combo', icon:'🎁', fields:[
+    {key:'combo_prod', label:'Producto agregado', type:'text'},
+    {key:'combo_id', label:'ID producto agregado', type:'text'},
+    {key:'combo_precio', label:'Precio adicional', type:'money'},
+    {key:'combo_obseq', label:'¿Se puede obsequiar?', type:'select', opts:['','Sí','No']},
+    {key:'combo_cpa', label:'CPA Breakeven (combo)', type:'money'},
+  ]},
+];
+const ALLFIELDS = [...MAND, ...SECTIONS.flatMap(s => s.fields)];
+
+// ─── Utilidades ───
+const $ = s => document.querySelector(s);
+const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
+function inputHtml(f, val, idpref){
+  const id = idpref + f.key; const v = val == null ? '' : val;
+  if(f.type==='textarea') return `<textarea id="${id}">${esc(v)}</textarea>`;
+  if(f.type==='select') return `<select id="${id}">${f.opts.map(o=>`<option ${o===v?'selected':''}>${o}</option>`).join('')}</select>`;
+  const t = f.type==='number'||f.type==='money' ? 'number' : (f.type==='date'?'date':(f.type==='url'?'url':'text'));
+  const step = f.type==='money' ? ' step="any"' : '';
+  return `<input type="${t}"${step} id="${id}" value="${esc(v)}">`;
+}
+function fieldHtml(f, val, idpref){
+  if(f.type==='image'){
+    const src = val ? `<img src="${val}">` : `<span style="font-size:26px">📷</span><span>Subir foto</span>`;
+    return `<div class="field photo">
+      <div class="drop" id="${idpref}drop" onclick="document.getElementById('${idpref}file').click()">${src}</div>
+      <input type="file" id="${idpref}file" accept="image/*" style="display:none" onchange="onPhoto(event,'${idpref}')">
+      <input type="hidden" id="${idpref}foto" value="${val||''}">
+      <div class="hint"><b>Foto obligatoria.</b> Se comprime sola para guardar liviano. Tocá el recuadro para elegir/cambiar.</div>
+    </div>`;
+  }
+  return `<div class="field" id="wrap_${idpref}${f.key}"><label>${esc(f.label)} ${MAND.includes(f)?'<span class="req">*</span>':''}</label>${inputHtml(f,val,idpref)}</div>`;
+}
+
+// Comprime imagen a dataURL liviano
+function onPhoto(ev, pref){
+  const file = ev.target.files[0]; if(!file) return;
+  const img = new Image(); const rd = new FileReader();
+  rd.onload = e => { img.onload = () => {
+    const max=1000; let {width:w,height:h}=img;
+    if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;} else {w=Math.round(w*max/h);h=max;} }
+    const c=document.createElement('canvas'); c.width=w; c.height=h;
+    c.getContext('2d').drawImage(img,0,0,w,h);
+    const data=c.toDataURL('image/jpeg',0.7);
+    document.getElementById(pref+'foto').value=data;
+    document.getElementById(pref+'drop').innerHTML=`<img src="${data}">`;
+    document.getElementById(pref+'drop').classList.remove('miss');
+  }; img.src=e.target.result; };
+  rd.readAsDataURL(file);
+}
+
+// ─── Render formulario AGREGAR ───
+function buildForm(pref, data){
+  data = data || {};
+  let html = `<div class="mand card" style="margin:0;border-radius:16px 16px 0 0;border-bottom:none">
+    <div class="sec-h">⭐ Datos obligatorios</div>
+    <div class="sec-b"><div class="grid">
+      ${fieldHtml(MAND[0], data.foto, pref)}
+      ${MAND.slice(1).map(f=>fieldHtml(f, data[f.key], pref)).join('')}
+    </div></div></div>`;
+  html += SECTIONS.map((s,i)=>`
+    <div class="card" style="margin:0;border-radius:0;border-top:1px solid var(--line)">
+      <div class="sec-h closed" onclick="toggleSec(this)">${s.icon} ${s.title}<span class="chev">▾</span></div>
+      <div class="sec-b hide"><div class="grid">${s.fields.map(f=>fieldHtml(f, data[f.key], pref)).join('')}</div></div>
+    </div>`).join('');
+  return html;
+}
+function toggleSec(h){ h.classList.toggle('closed'); h.nextElementSibling.classList.toggle('hide'); }
+
+function collect(pref){
+  const o={};
+  ALLFIELDS.forEach(f=>{
+    if(f.type==='image'){ o.foto = document.getElementById(pref+'foto').value || ''; return; }
+    const el=document.getElementById(pref+f.key); if(el) o[f.key]=el.value.trim();
+  });
+  return o;
+}
+function markMissing(pref, data){
+  let firstMiss=null;
+  MAND.forEach(f=>{
+    const ok = f.type==='image' ? !!data.foto : !!(data[f.key]&&String(data[f.key]).length);
+    if(f.type==='image'){ const d=document.getElementById(pref+'drop'); d.classList.toggle('miss',!ok); if(!ok&&!firstMiss)firstMiss=d; }
+    else { const w=document.getElementById('wrap_'+pref+f.key); if(w){ w.classList.toggle('miss',!ok); if(!ok&&!firstMiss)firstMiss=w; } }
+  });
+  return firstMiss;
+}
+
+// ─── API ───
+const API='/api/products';
+let PRODUCTS=[];
+async function load(){
+  try{ const r=await fetch(API); PRODUCTS=await r.json(); }
+  catch(e){ PRODUCTS=[]; }
+  $('#pcount').textContent=PRODUCTS.length;
+  renderList();
+}
+async function guardar(){
+  const pref='a_'; const data=collect(pref);
+  const miss=markMissing(pref,data);
+  const msg=$('#save-msg');
+  if(miss){ msg.className='msg err'; msg.textContent='Faltan campos obligatorios (en rojo).'; miss.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  msg.className='msg'; msg.textContent='Guardando…';
+  try{
+    const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http '+r.status);
+    await load(); limpiar(); msg.className='msg ok'; msg.textContent='✓ Guardado'; toast('✓ Producto guardado');
+    setTimeout(()=>msg.textContent='',2500);
+  }catch(e){ msg.className='msg err'; msg.textContent='Error al guardar: '+e.message; }
+}
+function limpiar(){ $('#form-body').innerHTML=buildForm('a_',{}); }
+
+// ─── Lista ───
+function renderList(){
+  const q=($('#search')?.value||'').toLowerCase().trim();
+  const list=PRODUCTS.filter(p=>!q || [p.nombre,p.id,p.nombre_proveedor,p.numero_proveedor].some(v=>(v||'').toLowerCase().includes(q)));
+  $('#listcount').textContent=`${list.length} de ${PRODUCTS.length}`;
+  const g=$('#pgrid');
+  if(!PRODUCTS.length){ g.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="big">📦</div>Todavía no hay productos.<br>Agregá el primero en la pestaña "Agregar producto".</div>`; return; }
+  if(!list.length){ g.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
+  g.innerHTML=list.map(p=>`
+    <div class="pcard" onclick="abrir('${p.pid}')">
+      <div class="thumb">${p.foto?`<img src="${p.foto}">`:'📷'}</div>
+      <div class="body">
+        <h3>${esc(p.nombre)||'(sin nombre)'}</h3>
+        <div style="font-size:12px;color:var(--sub)">ID: ${esc(p.id)||'—'}</div>
+        <div class="meta">
+          ${p.precio_proveedor?`<span class="chip price">Prov: $${esc(p.precio_proveedor)}</span>`:''}
+          ${p.stock?`<span class="chip stock">Stock: ${esc(p.stock)}</span>`:''}
+          ${p.nombre_proveedor?`<span class="chip">${esc(p.nombre_proveedor)}</span>`:''}
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+// ─── Modal ver/editar ───
+let EDIT_PID=null;
+function abrir(pid){
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
+  EDIT_PID=pid;
+  $('#modal-title').textContent=p.nombre||'Producto';
+  $('#modal-body').innerHTML=buildForm('e_',p);
+  $('#edit-msg').textContent='';
+  $('#overlay').classList.add('show');
+}
+function cerrar(){ $('#overlay').classList.remove('show'); EDIT_PID=null; }
+async function guardarEdicion(){
+  const pref='e_'; const data=collect(pref);
+  const miss=markMissing(pref,data); const msg=$('#edit-msg');
+  if(miss){ msg.className='msg err'; msg.textContent='Faltan obligatorios (en rojo).'; miss.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  msg.className='msg'; msg.textContent='Guardando…';
+  try{
+    const r=await fetch(API+'/'+encodeURIComponent(EDIT_PID),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http '+r.status);
+    await load(); msg.className='msg ok'; msg.textContent='✓ Guardado'; toast('✓ Cambios guardados'); setTimeout(cerrar,700);
+  }catch(e){ msg.className='msg err'; msg.textContent='Error: '+e.message; }
+}
+async function borrar(){
+  if(!EDIT_PID) return;
+  if(!confirm('¿Eliminar este producto? No se puede deshacer.')) return;
+  try{ await fetch(API+'/'+encodeURIComponent(EDIT_PID),{method:'DELETE'}); await load(); toast('Producto eliminado'); cerrar(); }
+  catch(e){ alert('Error al eliminar: '+e.message); }
+}
+
+// ─── Tabs, respaldo ───
+function showTab(t){
+  $('#view-add').style.display = t==='add'?'':'none';
+  $('#view-list').style.display = t==='list'?'':'none';
+  $('#tab-add').classList.toggle('active',t==='add');
+  $('#tab-list').classList.toggle('active',t==='list');
+  if(t==='list') load();
+}
+function exportar(){
+  const blob=new Blob([JSON.stringify(PRODUCTS,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='respaldo-productos.json'; a.click();
+}
+async function importar(ev){
+  const file=ev.target.files[0]; if(!file) return;
+  try{
+    const arr=JSON.parse(await file.text());
+    if(!Array.isArray(arr)) throw new Error('formato inválido');
+    if(!confirm(`Importar ${arr.length} productos? Se agregan a los existentes.`)) return;
+    for(const p of arr){ const {pid,_created,_updated,...data}=p; await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }
+    await load(); toast('Importación lista');
+  }catch(e){ alert('No pude importar: '+e.message); }
+  ev.target.value='';
+}
+
+// init
+limpiar(); load();
+</script>
+</body>
+</html>

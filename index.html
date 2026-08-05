@@ -145,6 +145,7 @@
   <div id="view-report" style="display:none">
     <div class="toolbar">
       <label style="font-size:13px;color:var(--sub)">Mes <select id="rep-month" onchange="renderReport()"></select></label>
+      <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
       <span class="count" id="rep-total"></span>
     </div>
     <div id="rep-body"></div>
@@ -487,7 +488,8 @@ function buildMonthSelect(){
 function renderReport(){
   const month=$('#rep-month').value;
   const body=$('#rep-body');
-  const tested=PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo&&p.fecha_testeo.slice(0,7)===month);
+  const q=($('#rep-search')?.value||'').toLowerCase().trim();
+  const tested=PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo&&p.fecha_testeo.slice(0,7)===month&&(!q||(p.nombre||'').toLowerCase().includes(q)));
   if(!month){ body.innerHTML=`<div class="empty" style="grid-column:1/-1"><div class="big">📊</div>Todavía no marcaste ningún producto como testeado.<br>Cuando marques uno con su fecha, aparece acá el reporte por semana.</div>`; $('#rep-total').textContent=''; return; }
   $('#rep-total').textContent=`${tested.length} testeo${tested.length===1?'':'s'} en ${nombreMes(month)}`;
   if(!tested.length){ body.innerHTML=`<div class="empty">Sin testeos en ${nombreMes(month)}.</div>`; return; }
@@ -509,8 +511,8 @@ function renderReport(){
         <span class="chip stock">${prods.length} testeado${prods.length===1?'':'s'}</span>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:13.5px">
-        <thead><tr><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Producto</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Fecha testeo</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">ID</th></tr></thead>
-        <tbody>${prods.map(p=>`<tr><td style="padding:8px 10px;border-bottom:1px solid var(--dim)">${esc(p.nombre)||'—'}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim)">${esc(p.fecha_testeo)}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim);color:var(--sub)">${esc(p.id)||'—'}</td></tr>`).join('')}</tbody>
+        <thead><tr><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Producto</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Fecha encontrado</th><th style="text-align:left;padding:8px 10px;color:var(--sub);font-size:11px;text-transform:uppercase;border-bottom:1px solid var(--line)">Fecha de testeo</th></tr></thead>
+        <tbody>${prods.map(p=>{const enc=p.fecha||(p._created?p._created.slice(0,10):'—'); return `<tr onclick="abrir('${p.pid}')" style="cursor:pointer" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''"><td style="padding:8px 10px;border-bottom:1px solid var(--dim);font-weight:600">${esc(p.nombre)||'—'}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim);color:var(--sub)">${esc(enc)}</td><td style="padding:8px 10px;border-bottom:1px solid var(--dim)">${esc(p.fecha_testeo)}</td></tr>`;}).join('')}</tbody>
       </table>
     </div>`;
   }).join('');

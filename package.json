@@ -1,12 +1,12 @@
 {
   "name": "analisis-productos",
   "version": "1.0.0",
-  "description": "Dashboard de análisis de productos (dropshipping) con guardado permanente.",
+  "description": "Dashboard de análisis de productos con guardado en GitHub.",
   "main": "server.js",
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "start": "node server.js"
-  },
-  "dependencies": {
-    "pg": "^8.11.5"
   }
 }

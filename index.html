@@ -95,6 +95,19 @@
   .modal-b{padding:20px 22px}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);border:1px solid var(--brand);color:var(--ink);padding:12px 20px;border-radius:12px;font-weight:600;box-shadow:var(--shadow);opacity:0;transition:.25s;pointer-events:none;z-index:80}
   .toast.show{opacity:1}
+
+  /* Desarrollo de producto */
+  .devbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(160deg,rgba(124,92,255,.10),rgba(18,20,31,.4));border:1px solid var(--brand);border-radius:14px;padding:14px 16px;margin-bottom:14px;position:sticky;top:10px;z-index:5;backdrop-filter:blur(6px)}
+  .devbar select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 9px;font:600 13px "Inter";outline:none}
+  .devblocks{display:grid;grid-template-columns:1fr;gap:12px}
+  .devblock{background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .devblock-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+  .devblock-h span{font-size:12.5px;font-weight:700;color:var(--brand2);letter-spacing:.01em}
+  .devblock .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:36px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
+  .devblock .cpy:hover{color:var(--ink);border-color:var(--brand)}
+  .devblock input,.devblock textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
+  .devblock textarea{min-height:84px;resize:vertical;line-height:1.5}
+  .devblock input:focus,.devblock textarea:focus{border-color:var(--brand)}
 </style>
 </head>
 <body>
@@ -115,6 +128,7 @@
     <div class="tab active" id="tab-add" onclick="showTab('add')">➕ Agregar producto</div>
     <div class="tab" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
     <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
+    <div class="tab" id="tab-dev" onclick="showTab('dev')">🚀 Desarrollo de producto</div>
   </div>
 
   <!-- AGREGAR -->
@@ -149,6 +163,17 @@
       <span class="count" id="rep-total"></span>
     </div>
     <div id="rep-body"></div>
+  </div>
+
+  <!-- DESARROLLO DE PRODUCTO -->
+  <div id="view-dev" style="display:none">
+    <div class="toolbar">
+      <select id="dev-select" onchange="onDevSelect(this.value)" style="flex:1;min-width:220px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:600 14px 'Inter';outline:none">
+        <option value="">— Elegí un producto para desarrollar —</option>
+      </select>
+    </div>
+    <div id="dev-empty" class="empty"><div class="big">🚀</div>Elegí un producto arriba para ver o empezar su desarrollo.<br>Cada bloque tiene su botón 📋 para copiar, y arriba está "Copiar todo".</div>
+    <div id="dev-editor"></div>
   </div>
 </div>
 
@@ -463,11 +488,121 @@ function showTab(t){
   $('#view-add').style.display = t==='add'?'':'none';
   $('#view-list').style.display = t==='list'?'':'none';
   $('#view-report').style.display = t==='report'?'':'none';
+  $('#view-dev').style.display = t==='dev'?'':'none';
   $('#tab-add').classList.toggle('active',t==='add');
   $('#tab-list').classList.toggle('active',t==='list');
   $('#tab-report').classList.toggle('active',t==='report');
+  $('#tab-dev').classList.toggle('active',t==='dev');
   if(t==='list') load();
   if(t==='report') loadReport();
+  if(t==='dev') loadDev();
+}
+
+// ─── Desarrollo de producto ───
+const DEV_STATUS = {'':'Aún no desarrollado','en_curso':'En curso','completado':'Completado'};
+const DEV_BLOCKS = [
+  {key:'dev_nombre', label:'Nombre del producto', type:'text'},
+  {key:'dev_marca', label:'Nombre de marca', type:'text'},
+  {key:'dev_precio_venta', label:'Precio de venta', type:'text'},
+  {key:'dev_oferta', label:'Oferta', type:'text'},
+  {key:'dev_titulo_principal', label:'Título principal', type:'textarea'},
+  {key:'dev_beneficios_principales', label:'Beneficios principales', type:'textarea'},
+  {key:'dev_titulo_gift', label:'Título del GIF', type:'text'},
+  {key:'dev_titulo_beneficios', label:'Título de beneficios', type:'text'},
+  {key:'dev_beneficios', label:'Beneficios', type:'textarea'},
+  {key:'dev_titulo_caracteristicas', label:'Título de características', type:'text'},
+  {key:'dev_caracteristicas', label:'Características', type:'textarea'},
+  {key:'dev_titulo_comparativa', label:'Título de tabla comparativa', type:'text'},
+  {key:'dev_comparativa', label:'Ítems de la tabla comparativa', type:'textarea'},
+  {key:'dev_titulo_faq', label:'Título de preguntas frecuentes', type:'text'},
+  {key:'dev_faq', label:'Preguntas frecuentes (todo en texto)', type:'textarea'},
+  {key:'dev_extra1_titulo', label:'Sección adicional 1 · título', type:'text'},
+  {key:'dev_extra1', label:'Sección adicional 1', type:'textarea'},
+  {key:'dev_extra2_titulo', label:'Sección adicional 2 · título', type:'text'},
+  {key:'dev_extra2', label:'Sección adicional 2', type:'textarea'},
+  {key:'dev_extra3_titulo', label:'Sección adicional 3 · título', type:'text'},
+  {key:'dev_extra3', label:'Sección adicional 3', type:'textarea'},
+  {key:'dev_drivers', label:'Drivers y gatillos mentales', type:'textarea'},
+  {key:'dev_resenas', label:'Reseñas', type:'textarea'},
+  {key:'dev_comentarios', label:'Comentarios', type:'textarea'},
+];
+let DEV_CUR=null;
+function devBadge(p){
+  const s=(p&&p.dev_estado)||'';
+  const map={'':['var(--sub)','⚪'],'en_curso':['var(--amber)','🟡'],'completado':['var(--green)','✅']};
+  const m=map[s]||map[''];
+  return `<span class="chip" style="color:${m[0]};border-color:${m[0]}">${m[1]} ${DEV_STATUS[s]}</span>`;
+}
+async function loadDev(){
+  try{ const r=await fetch(API); PRODUCTS=await r.json(); $('#pcount').textContent=PRODUCTS.length; }catch(e){}
+  buildDevSelect();
+  if(DEV_CUR && PRODUCTS.some(p=>p.pid===DEV_CUR)) openDevEditor(DEV_CUR);
+  else { DEV_CUR=null; $('#dev-editor').innerHTML=''; $('#dev-empty').style.display=''; }
+}
+function buildDevSelect(){
+  const sel=$('#dev-select');
+  sel.innerHTML='<option value="">— Elegí un producto para desarrollar —</option>'+
+    PRODUCTS.map(p=>`<option value="${p.pid}" ${p.pid===DEV_CUR?'selected':''}>${esc(p.nombre||'(sin nombre)')} — ${DEV_STATUS[(p.dev_estado||'')]}</option>`).join('');
+}
+function onDevSelect(pid){ DEV_CUR=pid||null; if(pid) openDevEditor(pid); else { $('#dev-editor').innerHTML=''; $('#dev-empty').style.display=''; } }
+function openDevEditor(pid){
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p){ return; }
+  DEV_CUR=pid;
+  $('#dev-empty').style.display='none';
+  const val=k=>{
+    if(k==='dev_nombre') return p.dev_nombre||p.nombre||'';
+    if(k==='dev_precio_venta') return p.dev_precio_venta||p.precio_venta||'';
+    return p[k]||'';
+  };
+  let html=`<div class="devbar">
+    <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> ${devBadge(p)}</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <label style="font-size:12px;color:var(--sub)">Estado:
+        <select id="d_dev_estado">
+          <option value="">Aún no desarrollado</option>
+          <option value="en_curso" ${p.dev_estado==='en_curso'?'selected':''}>En curso</option>
+          <option value="completado" ${p.dev_estado==='completado'?'selected':''}>Completado</option>
+        </select></label>
+      <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
+      <button class="btn" type="button" onclick="saveDev()">💾 Guardar</button>
+    </div>
+  </div>
+  <div class="devblocks">`+DEV_BLOCKS.map(b=>{
+    const v=esc(val(b.key));
+    const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
+    return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
+  }).join('')+`</div>
+  <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar desarrollo</button><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button><span class="msg" id="dev-msg"></span></div>`;
+  $('#dev-editor').innerHTML=html;
+}
+function copyBlock(key){
+  const el=document.getElementById('d_'+key); if(!el) return;
+  const t=el.value||'';
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t));
+  else fallbackCopy(t);
+}
+function copyAllDev(){
+  const parts=DEV_BLOCKS.map(b=>{const el=document.getElementById('d_'+b.key);const v=el?el.value.trim():'';return v?(b.label.toUpperCase()+':\n'+v):'';}).filter(Boolean);
+  const t=parts.join('\n\n');
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Todo copiado'),()=>fallbackCopy(t));
+  else fallbackCopy(t);
+}
+function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity=0; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');toast('✓ Copiado');}catch(e){} document.body.removeChild(ta); }
+async function saveDev(){
+  if(!DEV_CUR) return;
+  const p=PRODUCTS.find(x=>x.pid===DEV_CUR); if(!p) return;
+  const {pid,_created,_updated,...data}=p;
+  DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
+  const es=document.getElementById('d_dev_estado'); data.dev_estado = es?es.value:'';
+  const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
+  try{
+    const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http '+r.status);
+    const r2=await fetch(API); PRODUCTS=await r2.json(); $('#pcount').textContent=PRODUCTS.length;
+    buildDevSelect(); openDevEditor(DEV_CUR);
+    toast('✓ Desarrollo guardado');
+    const m2=$('#dev-msg'); if(m2){m2.className='msg ok';m2.textContent='✓ Guardado';setTimeout(()=>{const x=$('#dev-msg');if(x)x.textContent='';},2000);}
+  }catch(e){ const m=$('#dev-msg'); if(m){m.className='msg err';m.textContent='Error: '+e.message;} }
 }
 
 // ─── Reporte de testeos (por semana lun–dom, dentro del mes) ───

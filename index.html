@@ -100,7 +100,8 @@
   .devbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:linear-gradient(160deg,rgba(124,92,255,.10),rgba(18,20,31,.4));border:1px solid var(--brand);border-radius:14px;padding:14px 16px;margin-bottom:14px;position:sticky;top:10px;z-index:5;backdrop-filter:blur(6px)}
   .devbar select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 9px;font:600 13px "Inter";outline:none}
   .devblocks{display:grid;grid-template-columns:1fr;gap:12px}
-  .devblock{background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .devpanel{background:var(--bg1);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .devblock{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   .devblock-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
   .devblock-h span{font-size:12.5px;font-weight:700;color:var(--brand2);letter-spacing:.01em}
   .devblock .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:36px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
@@ -132,7 +133,8 @@
   .folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
   .folder{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:9px}
   .folder:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow)}
-  .folder .fic{font-size:30px;line-height:1}
+  .folder .fthumb{width:100%;height:120px;border-radius:11px;overflow:hidden;background:var(--bg3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:30px}
+  .folder .fthumb img{width:100%;height:100%;object-fit:cover;display:block}
   .folder .fname{font-size:15px;font-weight:700;line-height:1.25;word-break:break-word}
   .folder .chip{align-self:flex-start}
 
@@ -634,7 +636,7 @@ function renderDevFolders(){
   if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">🚀</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
   empty.style.display='none';
   if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
-  box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fic">📁</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${devBadge(p)}</div>`).join('');
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${devBadge(p)}</div>`).join('');
 }
 function devBackToFolders(){ DEV_CUR=null; $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML=''; $('#dev-folders-wrap').style.display=''; renderDevFolders(); }
 function devOnEstado(){ const s=ddVal('d_dev_estado'); const b=$('#dev-badge'); if(b) b.innerHTML=devBadge({dev_estado:s}); }
@@ -657,11 +659,11 @@ function openDevEditor(pid){
       <button class="btn" type="button" onclick="saveDev()">💾 Guardar</button>
     </div>
   </div>
-  <div class="devblocks">`+DEV_BLOCKS.map(b=>{
+  <div class="devpanel"><div class="devblocks">`+DEV_BLOCKS.map(b=>{
     const v=esc(val(b.key));
     const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
     return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
-  }).join('')+`</div>
+  }).join('')+`</div></div>
   <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar desarrollo</button><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button><span class="msg" id="dev-msg"></span></div>`;
   $('#dev-editor').innerHTML=html;
 }
@@ -792,7 +794,7 @@ function renderScrFolders(){
   if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">📝</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
   empty.style.display='none';
   if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
-  box.innerHTML=list.map(p=>`<div class="folder" onclick="openScrEditor('${p.pid}')"><div class="fic">📁</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${scrBadge(p)}</div>`).join('');
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openScrEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${scrBadge(p)}</div>`).join('');
 }
 function scrBackToFolders(){ SCR_CUR=null; $('#scr-editor').style.display='none'; $('#scr-editor').innerHTML=''; $('#scr-folders-wrap').style.display=''; renderScrFolders(); }
 function openScrEditor(pid){
@@ -815,13 +817,14 @@ function openScrEditor(pid){
     <div class="subtab" id="scrsub-vars" onclick="scrSub('vars')">🔀 Variaciones</div>
   </div>
   <div id="scrpanel-scripts">
-    <div class="subtabs mini">`+SCR_CATS.map((c,i)=>`<div class="subtab ${i===0?'active':''}" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`</div>`+
+    <div class="subtabs mini">`+SCR_CATS.map((c,i)=>`<div class="subtab ${i===0?'active':''}" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`</div>
+    <div class="devpanel">`+
   SCR_CATS.map((c,i)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:${i===0?'block':'none'}">
       <div class="devblock">
         <div class="devblock-h"><span>${c.icon} Script ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_scr_${c.key}')">📋</button></div>
         <textarea id="s_scr_${c.key}" style="min-height:150px" placeholder="Escribí acá el script de testeo ${c.label.toLowerCase()}…">${esc(p['scr_'+c.key]||'')}</textarea>
       </div>
-    </div>`).join('')+`
+    </div>`).join('')+`</div>
   </div>
   <div id="scrpanel-vars" style="display:none">
     <div id="scr-vars-list"></div>

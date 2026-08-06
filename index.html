@@ -84,6 +84,12 @@
   .testchk.corner{position:absolute;top:9px;right:9px;z-index:2;background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.6);color:#fff;backdrop-filter:blur(2px)}
   .testchk.corner:hover{border-color:var(--green);color:var(--green)}
   .testchk.corner.on{background:var(--green);border-color:var(--green);color:#04120c}
+  /* Mini toggle testeado con etiqueta (tarjeta) */
+  .testtog{display:inline-flex;align-items:center;gap:6px;cursor:pointer;margin-top:10px;font-size:12px;font-weight:600;color:var(--sub);user-select:none}
+  .testtog-box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+  .testtog:hover .testtog-box{border-color:var(--green)}
+  .testtog.on{color:var(--green)}
+  .testtog.on .testtog-box{background:var(--green);border-color:var(--green);color:#04120c}
   .pcard .thumb img{width:100%;height:100%;object-fit:cover}
   .pcard .body{padding:12px 14px}
   .pcard .body h3{margin:0 0 6px;font-size:15px;font-weight:700;line-height:1.25}
@@ -533,7 +539,7 @@ function renderList(){
   if(!list.length){ g.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
   g.innerHTML=list.map(p=>`
     <div class="pcard" onclick="abrir('${p.pid}')">
-      <div class="thumb"><button class="testchk corner ${p.fecha_testeo?'on':''}" type="button" onclick="toggleTesteado('${p.pid}',event)" title="${p.fecha_testeo?'Testeado ✅ · clic para quitar':'Marcar como testeado'}">${p.fecha_testeo?'✓':''}</button>${p.foto?`<img src="${p.foto}">`:'📷'}</div>
+      <div class="thumb">${p.foto?`<img src="${p.foto}">`:'📷'}</div>
       <div class="body">
         <h3 style="margin:0">${esc(p.nombre)||'(sin nombre)'}</h3>
         <div style="font-size:12px;color:var(--sub);margin-top:4px">ID: ${esc(p.id)||'—'}</div>
@@ -542,6 +548,7 @@ function renderList(){
           ${p.stock?`<span class="chip stock">Stock: ${esc(p.stock)}</span>`:''}
           ${p.nombre_proveedor?`<span class="chip">${esc(p.nombre_proveedor)}</span>`:''}
         </div>
+        <div class="testtog ${p.fecha_testeo?'on':''}" onclick="toggleTesteado('${p.pid}',event)" title="Clic para marcar/quitar testeado"><span class="testtog-box">${p.fecha_testeo?'✓':''}</span>${p.fecha_testeo?'Testeado':'No testeado'}</div>
       </div>
     </div>`).join('');
 }
@@ -653,6 +660,18 @@ function ddPick(opt){
 }
 function ddVal(id){ const dd=document.getElementById(id); return dd?dd.dataset.value:''; }
 document.addEventListener('click',e=>{ if(!e.target.closest('.dd')) document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open')); });
+async function saveFolderEstado(pid, field, val){
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
+  const {pid:_p,_created,_updated,...data}=p; data[field]=val;
+  try{
+    const r=await fetch(API+'/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http');
+    const i=PRODUCTS.findIndex(x=>x.pid===pid); if(i>=0) PRODUCTS[i][field]=val;
+    toast('✓ Estado actualizado');
+  }catch(e){ toast('Error al guardar'); }
+}
+function devFolderEstado(dd){ saveFolderEstado(dd.id.replace('devest_',''),'dev_estado',dd.dataset.value); }
+function scrFolderEstado(dd){ saveFolderEstado(dd.id.replace('screst_',''),'scr_estado',dd.dataset.value); }
 
 async function loadDev(){
   try{ const r=await fetch(API); PRODUCTS=await r.json(); $('#pcount').textContent=PRODUCTS.length; }catch(e){}
@@ -669,7 +688,7 @@ function renderDevFolders(){
   if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">🚀</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
   empty.style.display='none';
   if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
-  box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${devBadge(p)}</div>`).join('');
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div><div onclick="event.stopPropagation()">${ddHtml('devest_'+p.pid, p.dev_estado||'', [{val:'',label:'⚪ Aún no desarrollado'},{val:'en_curso',label:'🟡 En curso'},{val:'completado',label:'✅ Completado'}], 'devFolderEstado', 'block')}</div></div>`).join('');
 }
 function devBackToFolders(){ DEV_CUR=null; $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML=''; $('#dev-folders-wrap').style.display=''; renderDevFolders(); }
 function devOnEstado(){ const s=ddVal('d_dev_estado'); const b=$('#dev-badge'); if(b) b.innerHTML=devBadge({dev_estado:s}); }
@@ -834,7 +853,7 @@ function renderScrFolders(){
   if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">📝</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
   empty.style.display='none';
   if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
-  box.innerHTML=list.map(p=>`<div class="folder" onclick="openScrEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${scrBadge(p)}</div>`).join('');
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openScrEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div><div onclick="event.stopPropagation()">${ddHtml('screst_'+p.pid, p.scr_estado||'', [{val:'',label:'⚪ Sin empezar'},{val:'en_curso',label:'🟡 En curso'},{val:'completado',label:'✅ Completado'}], 'scrFolderEstado', 'block')}</div></div>`).join('');
 }
 function scrBackToFolders(){ SCR_CUR=null; $('#scr-editor').style.display='none'; $('#scr-editor').innerHTML=''; $('#scr-folders-wrap').style.display=''; renderScrFolders(); }
 function openScrEditor(pid){

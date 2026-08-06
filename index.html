@@ -199,35 +199,37 @@
   </header>
 
   <div class="tabs">
-    <div class="tab active" id="tab-add" onclick="showTab('add')">➕ Agregar producto</div>
-    <div class="tab" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
-    <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
+    <div class="tab active" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
     <div class="tab" id="tab-dev" onclick="showTab('dev')">🚀 Desarrollo de producto</div>
-    <div class="tab" id="tab-scr" onclick="showTab('scr')">📝 Scripts y anuncios</div>
+    <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
   </div>
 
-  <!-- AGREGAR -->
-  <div id="view-add">
-    <form id="form" class="card" style="padding:0" onsubmit="return false">
-      <div id="form-body"></div>
-      <div style="padding:0 20px 22px">
-        <div class="actions">
-          <button class="btn" onclick="guardar()">💾 Guardar producto</button>
-          <button class="btn ghost" type="button" onclick="limpiar()">Limpiar</button>
-          <span class="msg" id="save-msg"></span>
-        </div>
-        <p style="color:var(--sub);font-size:12px;margin:10px 0 0">Los campos con <span style="color:var(--brand2)">*</span> son obligatorios. El resto lo podés completar ahora o después (se guarda igual).</p>
-      </div>
-    </form>
-  </div>
-
-  <!-- PRODUCTOS -->
+  <!-- PRODUCTOS (lista + agregar) -->
   <div id="view-list" style="display:none">
-    <div class="toolbar">
-      <input id="search" placeholder="🔎 Buscar por nombre, ID, proveedor…" oninput="renderList()">
-      <span class="count" id="listcount"></span>
+    <div class="subtabs">
+      <div class="subtab active" id="psub-lista" onclick="prodSub('lista')">📦 Lista</div>
+      <div class="subtab" id="psub-add" onclick="prodSub('add')">➕ Agregar producto</div>
     </div>
-    <div id="pgrid" class="pgrid"></div>
+    <div id="ppanel-lista">
+      <div class="toolbar">
+        <input id="search" placeholder="🔎 Buscar por nombre, ID, proveedor…" oninput="renderList()">
+        <span class="count" id="listcount"></span>
+      </div>
+      <div id="pgrid" class="pgrid"></div>
+    </div>
+    <div id="ppanel-add" style="display:none">
+      <form id="form" class="card" style="padding:0" onsubmit="return false">
+        <div id="form-body"></div>
+        <div style="padding:0 20px 22px">
+          <div class="actions">
+            <button class="btn" onclick="guardar()">💾 Guardar producto</button>
+            <button class="btn ghost" type="button" onclick="limpiar()">Limpiar</button>
+            <span class="msg" id="save-msg"></span>
+          </div>
+          <p style="color:var(--sub);font-size:12px;margin:10px 0 0">Los campos con <span style="color:var(--brand2)">*</span> son obligatorios. El resto lo podés completar ahora o después (se guarda igual).</p>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- REPORTE DE TESTEOS -->
@@ -251,19 +253,6 @@
       <div id="dev-empty" class="empty"><div class="big">🚀</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".</div>
     </div>
     <div id="dev-editor" style="display:none"></div>
-  </div>
-
-  <!-- SCRIPTS Y ANUNCIOS -->
-  <div id="view-scr" style="display:none">
-    <div id="scr-folders-wrap">
-      <div class="toolbar">
-        <input id="scr-search" placeholder="🔎 Buscar producto…" oninput="renderScrFolders()">
-        <span class="count" id="scr-count"></span>
-      </div>
-      <div id="scr-folders" class="folders"></div>
-      <div id="scr-empty" class="empty"><div class="big">📝</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".</div>
-    </div>
-    <div id="scr-editor" style="display:none"></div>
   </div>
 </div>
 
@@ -523,7 +512,7 @@ async function guardar(){
   try{
     const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
     if(!r.ok) throw new Error('http '+r.status);
-    await load(); limpiar(); msg.className='msg ok'; msg.textContent='✓ Guardado'; toast('✓ Producto guardado');
+    await load(); limpiar(); prodSub('lista'); msg.className='msg ok'; msg.textContent='✓ Guardado'; toast('✓ Producto guardado');
     setTimeout(()=>msg.textContent='',2500);
   }catch(e){ msg.className='msg err'; msg.textContent='Error al guardar: '+e.message; }
 }
@@ -585,20 +574,28 @@ async function borrar(){
 
 // ─── Tabs, respaldo ───
 function showTab(t){
-  $('#view-add').style.display = t==='add'?'':'none';
   $('#view-list').style.display = t==='list'?'':'none';
   $('#view-report').style.display = t==='report'?'':'none';
   $('#view-dev').style.display = t==='dev'?'':'none';
-  $('#view-scr').style.display = t==='scr'?'':'none';
-  $('#tab-add').classList.toggle('active',t==='add');
   $('#tab-list').classList.toggle('active',t==='list');
   $('#tab-report').classList.toggle('active',t==='report');
   $('#tab-dev').classList.toggle('active',t==='dev');
-  $('#tab-scr').classList.toggle('active',t==='scr');
   if(t==='list') load();
   if(t==='report') loadReport();
   if(t==='dev') loadDev();
-  if(t==='scr') loadScr();
+}
+function prodSub(which){
+  $('#ppanel-lista').style.display = which==='lista'?'':'none';
+  $('#ppanel-add').style.display = which==='add'?'':'none';
+  $('#psub-lista').classList.toggle('active',which==='lista');
+  $('#psub-add').classList.toggle('active',which==='add');
+  if(which==='lista') load();
+}
+function prodPanel(which){
+  $('#prodpanel-pagina').style.display = which==='pagina'?'':'none';
+  $('#prodpanel-anuncios').style.display = which==='anuncios'?'':'none';
+  $('#prod-pagina').classList.toggle('active',which==='pagina');
+  $('#prod-anuncios').classList.toggle('active',which==='anuncios');
 }
 
 // ─── Desarrollo de producto ───
@@ -702,28 +699,61 @@ function openDevEditor(pid){
     if(k==='dev_precio_venta') return p.dev_precio_venta||p.precio_venta||'';
     return p[k]||'';
   };
+  SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
+  SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
   let html=`<div class="devbar">
     <button class="btn ghost" type="button" onclick="devBackToFolders()" style="padding:8px 12px">← Productos</button>
     <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="dev-badge">${devBadge(p)}</span></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
       <span style="font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Estado:${ddHtml('d_dev_estado', p.dev_estado||'', [{val:'',label:'Aún no desarrollado'},{val:'en_curso',label:'En curso'},{val:'completado',label:'Completado'}], 'devOnEstado')}</span>
-      <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
       <button class="btn" type="button" onclick="saveDev()">💾 Guardar</button>
     </div>
   </div>
-  <div class="devpanel"><div class="devblocks">`+DEV_BLOCKS.map(b=>{
-    const v=esc(val(b.key));
-    const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
-    return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
-  }).join('')+`</div></div>
-  <div class="devpanel">
-    <div class="devblock-h" style="margin-bottom:12px"><span>🎯 Ángulos de venta</span></div>
-    <div id="dev-ang-list"></div>
-    <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
+  <div class="subtabs">
+    <div class="subtab active" id="prod-pagina" onclick="prodPanel('pagina')">📄 Página</div>
+    <div class="subtab" id="prod-anuncios" onclick="prodPanel('anuncios')">📣 Anuncios</div>
   </div>
-  <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar desarrollo</button><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button><span class="msg" id="dev-msg"></span></div>`;
+  <div id="prodpanel-pagina">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button></div>
+    <div class="devpanel"><div class="devblocks">`+DEV_BLOCKS.map(b=>{
+      const v=esc(val(b.key));
+      const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
+      return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
+    }).join('')+`</div></div>
+  </div>
+  <div id="prodpanel-anuncios" style="display:none">
+    <div class="subtabs">
+      <div class="subtab active" id="scrsub-scripts" onclick="scrSub('scripts')">📝 Scripts de testeos</div>
+      <div class="subtab" id="scrsub-vars" onclick="scrSub('vars')">🔀 Variaciones</div>
+    </div>
+    <div id="scrpanel-scripts">
+      <div class="subtabs mini">
+        <div class="subtab active" id="scrcat-angulos" onclick="scrCat('angulos')">🎯 Ángulos de venta</div>`+
+        SCR_CATS.map((c)=>`<div class="subtab" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`
+      </div>
+      <div class="devpanel">
+        <div class="scr-catpanel" id="scrcp-angulos" style="display:block">
+          <div class="devblock-h" style="margin-bottom:12px"><span>🎯 Ángulos de venta</span></div>
+          <div id="scr-ang-list"></div>
+          <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
+        </div>`+
+      SCR_CATS.map((c)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:none">
+          <div id="scrangs-${c.key}"></div>
+          <div class="devblock">
+            <div class="devblock-h"><span>${c.icon} Script ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_scr_${c.key}')">📋</button></div>
+            <textarea id="s_scr_${c.key}" style="min-height:150px" placeholder="Escribí acá el script de testeo ${c.label.toLowerCase()}…">${esc(p['scr_'+c.key]||'')}</textarea>
+          </div>
+        </div>`).join('')+`</div>
+    </div>
+    <div id="scrpanel-vars" style="display:none">
+      <div id="scr-vars-list"></div>
+      <button class="btn ghost" type="button" onclick="scrAddGroup()" style="margin-top:4px">➕ Agregar variación de un script</button>
+    </div>
+  </div>
+  <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar</button><span class="msg" id="dev-msg"></span></div>`;
   $('#dev-editor').innerHTML=html;
-  angInit(p,'dev-ang-list');
+  renderScrVars();
+  angInit(p,'scr-ang-list',true);
 }
 function copyBlock(key){
   const el=document.getElementById('d_'+key); if(!el) return;
@@ -742,9 +772,15 @@ async function saveDev(){
   if(!DEV_CUR) return;
   const p=PRODUCTS.find(x=>x.pid===DEV_CUR); if(!p) return;
   const {pid,_created,_updated,...data}=p;
+  // Página (landing / desarrollo)
   DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
   data.dev_estado = ddVal('d_dev_estado');
   data.angulos = angCollect();
+  // Anuncios (scripts + variaciones)
+  SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });
+  data.scr_estado = data.dev_estado;
+  scrSyncVars();
+  data.scr_variaciones = SCR_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
@@ -1013,7 +1049,7 @@ function scrRenderCatAngs(key){
 }
 
 // init
-limpiar(); load();
+limpiar(); showTab('list');
 </script>
 </body>
 </html>

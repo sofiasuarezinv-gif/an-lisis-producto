@@ -102,6 +102,13 @@
   .devblocks{display:grid;grid-template-columns:1fr;gap:12px}
   .devpanel{background:var(--bg1);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
   .devblock{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  /* Ángulos de venta (checklist) */
+  .ang-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .ang-row input[type=checkbox]{width:19px;height:19px;flex:none;accent-color:var(--brand);cursor:pointer}
+  .ang-row input[type=text]{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
+  .ang-row input[type=text]:focus{border-color:var(--brand)}
+  .ang-row input[type=checkbox]:checked + input[type=text]{color:var(--sub);text-decoration:line-through;text-decoration-color:var(--green)}
+  .ang-row .cpy{flex:none}
   .devblock-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
   .devblock-h span{font-size:12.5px;font-weight:700;color:var(--brand2);letter-spacing:.01em}
   .devblock .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:36px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
@@ -664,8 +671,14 @@ function openDevEditor(pid){
     const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
     return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
   }).join('')+`</div></div>
+  <div class="devpanel">
+    <div class="devblock-h" style="margin-bottom:12px"><span>🎯 Ángulos de venta</span></div>
+    <div id="dev-ang-list"></div>
+    <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
+  </div>
   <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar desarrollo</button><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button><span class="msg" id="dev-msg"></span></div>`;
   $('#dev-editor').innerHTML=html;
+  angInit(p,'dev-ang-list');
 }
 function copyBlock(key){
   const el=document.getElementById('d_'+key); if(!el) return;
@@ -686,6 +699,7 @@ async function saveDev(){
   const {pid,_created,_updated,...data}=p;
   DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
   data.dev_estado = ddVal('d_dev_estado');
+  data.angulos = angCollect();
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
@@ -763,11 +777,11 @@ async function importar(ev){
 
 // ─── Scripts y anuncios ───
 const SCR_CATS = [
-  {key:'emocional',   label:'Emocional',   icon:'❤️'},
-  {key:'comparacion', label:'Comparación', icon:'⚖️'},
-  {key:'beneficios',  label:'Beneficios',  icon:'✨'},
-  {key:'testimonio',  label:'Testimonio',  icon:'🗣️'},
-  {key:'validacion',  label:'Validación',  icon:'✅'},
+  {key:'emocional',   label:'Emocional',   icon:'📝'},
+  {key:'comparacion', label:'Comparación', icon:'📝'},
+  {key:'beneficios',  label:'Beneficios',  icon:'📝'},
+  {key:'testimonio',  label:'Testimonio',  icon:'📝'},
+  {key:'validacion',  label:'Validación',  icon:'📝'},
 ];
 const SCR_STATUS_TXT={'':'Sin empezar','en_curso':'En curso','completado':'Completado'};
 let SCR_CUR=null;
@@ -817,9 +831,17 @@ function openScrEditor(pid){
     <div class="subtab" id="scrsub-vars" onclick="scrSub('vars')">🔀 Variaciones</div>
   </div>
   <div id="scrpanel-scripts">
-    <div class="subtabs mini">`+SCR_CATS.map((c,i)=>`<div class="subtab ${i===0?'active':''}" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`</div>
-    <div class="devpanel">`+
-  SCR_CATS.map((c,i)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:${i===0?'block':'none'}">
+    <div class="subtabs mini">
+      <div class="subtab active" id="scrcat-angulos" onclick="scrCat('angulos')">🎯 Ángulos de venta</div>`+
+      SCR_CATS.map((c)=>`<div class="subtab" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`
+    </div>
+    <div class="devpanel">
+      <div class="scr-catpanel" id="scrcp-angulos" style="display:block">
+        <div class="devblock-h" style="margin-bottom:12px"><span>🎯 Ángulos de venta</span></div>
+        <div id="scr-ang-list"></div>
+        <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
+      </div>`+
+  SCR_CATS.map((c)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:none">
       <div class="devblock">
         <div class="devblock-h"><span>${c.icon} Script ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_scr_${c.key}')">📋</button></div>
         <textarea id="s_scr_${c.key}" style="min-height:150px" placeholder="Escribí acá el script de testeo ${c.label.toLowerCase()}…">${esc(p['scr_'+c.key]||'')}</textarea>
@@ -833,6 +855,7 @@ function openScrEditor(pid){
   <div class="actions"><button class="btn" type="button" onclick="saveScr()">💾 Guardar</button><span class="msg" id="scr-msg"></span></div>`;
   $('#scr-editor').innerHTML=html;
   renderScrVars();
+  angInit(p,'scr-ang-list');
 }
 function scrOnEstado(){ const s=ddVal('s_scr_estado'); const b=$('#scr-badge'); if(b) b.innerHTML=scrBadge({scr_estado:s}); }
 function scrSub(which){
@@ -843,9 +866,10 @@ function scrSub(which){
   if(which==='vars') renderScrVars();
 }
 function scrCat(key){
-  SCR_CATS.forEach(c=>{
-    document.getElementById('scrcp-'+c.key).style.display = c.key===key?'block':'none';
-    document.getElementById('scrcat-'+c.key).classList.toggle('active',c.key===key);
+  const keys=['angulos'].concat(SCR_CATS.map(c=>c.key));
+  keys.forEach(k=>{
+    const cp=document.getElementById('scrcp-'+k); if(cp) cp.style.display = k===key?'block':'none';
+    const tab=document.getElementById('scrcat-'+k); if(tab) tab.classList.toggle('active',k===key);
   });
 }
 function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+catKey); return el?el.value:''; }
@@ -894,6 +918,7 @@ async function saveScr(){
   const {pid,_created,_updated,...data}=p;
   SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });
   data.scr_estado = ddVal('s_scr_estado');
+  data.angulos = angCollect();
   data.scr_variaciones = SCR_VARS
     .map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)}))
     .filter(g=>g.rows.length);
@@ -907,6 +932,27 @@ async function saveScr(){
     if(msg){msg.className='msg ok';msg.textContent='✓ Guardado para siempre';setTimeout(()=>{const x=$('#scr-msg');if(x)x.textContent='';},2200);}
   }catch(e){ const m=$('#scr-msg'); if(m){m.className='msg err';m.textContent='Error: '+e.message;} }
 }
+
+// ─── Ángulos de venta (checklist compartido: Desarrollo + Scripts) ───
+let ANG=[];        // [{t:'texto', c:booleano}]
+let ANG_BOX=null;  // id del contenedor donde se pinta
+function angInit(p, boxId){ ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : []; ANG_BOX=boxId; angRender(); }
+function angSync(){ ANG.forEach((a,i)=>{ const t=document.getElementById('ang_t_'+i); const c=document.getElementById('ang_c_'+i); if(t)a.t=t.value; if(c)a.c=c.checked; }); }
+function angRender(){
+  const box=document.getElementById(ANG_BOX); if(!box) return;
+  if(!ANG.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:4px 2px 10px">Todavía no hay ángulos. Agregá los ángulos de venta del producto con el botón de abajo.</div>`; return; }
+  box.innerHTML=ANG.map((a,i)=>`
+    <div class="ang-row">
+      <input type="checkbox" id="ang_c_${i}" ${a.c?'checked':''} onchange="angSync()">
+      <input type="text" id="ang_t_${i}" value="${esc(a.t||'')}" placeholder="Ángulo de venta ${i+1}…">
+      <button class="cpy" type="button" title="Copiar" onclick="angCopy(${i})">📋</button>
+      <button class="cpy" type="button" title="Quitar" onclick="angDel(${i})">🗑️</button>
+    </div>`).join('');
+}
+function angAdd(){ angSync(); ANG.push({t:'',c:false}); angRender(); const el=document.getElementById('ang_t_'+(ANG.length-1)); if(el) el.focus(); }
+function angDel(i){ angSync(); ANG.splice(i,1); angRender(); }
+function angCopy(i){ const el=document.getElementById('ang_t_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function angCollect(){ angSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c})).filter(a=>a.t); }
 
 // init
 limpiar(); load();

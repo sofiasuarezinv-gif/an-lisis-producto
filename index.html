@@ -127,6 +127,29 @@
   .scr-varrow textarea{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none;min-height:60px;resize:vertical;line-height:1.5}
   .scr-varrow textarea:focus{border-color:var(--brand)}
   .scr-varrow .cpy{flex:none}
+
+  /* Carpetas de productos */
+  .folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  .folder{background:var(--bg1);border:1px solid var(--line);border-radius:14px;padding:16px 16px 14px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:9px}
+  .folder:hover{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow)}
+  .folder .fic{font-size:30px;line-height:1}
+  .folder .fname{font-size:15px;font-weight:700;line-height:1.25;word-break:break-word}
+  .folder .chip{align-self:flex-start}
+
+  /* Dropdown estilo dashboard (reemplaza el <select> nativo) */
+  .dd{position:relative;display:inline-block;min-width:190px;vertical-align:middle}
+  .dd.block{display:block;width:100%}
+  .dd-btn{width:100%;display:flex;align-items:center;gap:10px;background:var(--bg3);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:9px 12px;font:600 13.5px "Inter";cursor:pointer;text-align:left}
+  .dd-btn:hover{border-color:var(--brand)}
+  .dd.open .dd-btn{border-color:var(--brand)}
+  .dd-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dd-chev{color:var(--sub);transition:transform .2s;font-size:10px}
+  .dd.open .dd-chev{transform:rotate(180deg)}
+  .dd-menu{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;background:var(--bg2);border:1px solid var(--line);border-radius:11px;box-shadow:var(--shadow);padding:6px;z-index:60;display:none;max-height:300px;overflow:auto}
+  .dd.open .dd-menu{display:block}
+  .dd-opt{padding:9px 11px;border-radius:8px;cursor:pointer;color:var(--ink);font-size:13.5px;white-space:nowrap}
+  .dd-opt:hover{background:var(--bg3)}
+  .dd-opt.sel{background:var(--brand);color:#fff}
 </style>
 </head>
 <body>
@@ -178,7 +201,7 @@
   <!-- REPORTE DE TESTEOS -->
   <div id="view-report" style="display:none">
     <div class="toolbar">
-      <label style="font-size:13px;color:var(--sub)">Mes <select id="rep-month" onchange="renderReport()"></select></label>
+      <span style="font-size:13px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Mes <span id="rep-month-wrap"></span></span>
       <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
       <span class="count" id="rep-total"></span>
     </div>
@@ -187,24 +210,28 @@
 
   <!-- DESARROLLO DE PRODUCTO -->
   <div id="view-dev" style="display:none">
-    <div class="toolbar">
-      <select id="dev-select" onchange="onDevSelect(this.value)" style="flex:1;min-width:220px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:600 14px 'Inter';outline:none">
-        <option value="">— Elegí un producto para desarrollar —</option>
-      </select>
+    <div id="dev-folders-wrap">
+      <div class="toolbar">
+        <input id="dev-search" placeholder="🔎 Buscar producto…" oninput="renderDevFolders()">
+        <span class="count" id="dev-count"></span>
+      </div>
+      <div id="dev-folders" class="folders"></div>
+      <div id="dev-empty" class="empty"><div class="big">🚀</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".</div>
     </div>
-    <div id="dev-empty" class="empty"><div class="big">🚀</div>Elegí un producto arriba para ver o empezar su desarrollo.<br>Cada bloque tiene su botón 📋 para copiar, y arriba está "Copiar todo".</div>
-    <div id="dev-editor"></div>
+    <div id="dev-editor" style="display:none"></div>
   </div>
 
   <!-- SCRIPTS Y ANUNCIOS -->
   <div id="view-scr" style="display:none">
-    <div class="toolbar">
-      <select id="scr-select" onchange="onScrSelect(this.value)" style="flex:1;min-width:220px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:600 14px 'Inter';outline:none">
-        <option value="">— Elegí un producto —</option>
-      </select>
+    <div id="scr-folders-wrap">
+      <div class="toolbar">
+        <input id="scr-search" placeholder="🔎 Buscar producto…" oninput="renderScrFolders()">
+        <span class="count" id="scr-count"></span>
+      </div>
+      <div id="scr-folders" class="folders"></div>
+      <div id="scr-empty" class="empty"><div class="big">📝</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".</div>
     </div>
-    <div id="scr-empty" class="empty"><div class="big">📝</div>Elegí un producto arriba para escribir sus scripts de testeo y variaciones.<br>Cada bloque tiene su botón 📋 para copiar. Todo se guarda para siempre.</div>
-    <div id="scr-editor"></div>
+    <div id="scr-editor" style="display:none"></div>
   </div>
 </div>
 
@@ -567,36 +594,65 @@ function devBadge(p){
   const m=map[s]||map[''];
   return `<span class="chip" style="color:${m[0]};border-color:${m[0]}">${m[1]} ${DEV_STATUS[s]}</span>`;
 }
+// ─── Dropdown estilo dashboard (reemplaza el <select> nativo) ───
+function ddHtml(id, value, options, onpick, extraClass){
+  const cur = options.find(o=>String(o.val)===String(value)) || options[0] || {val:'',label:''};
+  return `<div class="dd${extraClass?(' '+extraClass):''}" id="${id}" data-value="${esc(cur.val)}"${onpick?` data-onpick="${onpick}"`:''}>
+    <button class="dd-btn" type="button" onclick="ddToggle(this)"><span class="dd-label">${esc(cur.label)}</span><span class="dd-chev">▾</span></button>
+    <div class="dd-menu">${options.map(o=>`<div class="dd-opt${String(o.val)===String(cur.val)?' sel':''}" data-val="${esc(o.val)}" onclick="ddPick(this)">${esc(o.label)}</div>`).join('')}</div>
+  </div>`;
+}
+function ddToggle(btn){
+  const dd=btn.closest('.dd'); const open=dd.classList.contains('open');
+  document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open'));
+  if(!open) dd.classList.add('open');
+}
+function ddPick(opt){
+  const dd=opt.closest('.dd');
+  dd.dataset.value=opt.dataset.val;
+  dd.querySelector('.dd-label').textContent=opt.textContent;
+  dd.querySelectorAll('.dd-opt').forEach(o=>o.classList.remove('sel'));
+  opt.classList.add('sel');
+  dd.classList.remove('open');
+  const fn=dd.dataset.onpick; if(fn&&typeof window[fn]==='function') window[fn](dd);
+}
+function ddVal(id){ const dd=document.getElementById(id); return dd?dd.dataset.value:''; }
+document.addEventListener('click',e=>{ if(!e.target.closest('.dd')) document.querySelectorAll('.dd.open').forEach(d=>d.classList.remove('open')); });
+
 async function loadDev(){
   try{ const r=await fetch(API); PRODUCTS=await r.json(); $('#pcount').textContent=PRODUCTS.length; }catch(e){}
-  buildDevSelect();
-  if(DEV_CUR && PRODUCTS.some(p=>p.pid===DEV_CUR)) openDevEditor(DEV_CUR);
-  else { DEV_CUR=null; $('#dev-editor').innerHTML=''; $('#dev-empty').style.display=''; }
+  DEV_CUR=null;
+  $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML='';
+  $('#dev-folders-wrap').style.display='';
+  renderDevFolders();
 }
-function buildDevSelect(){
-  const sel=$('#dev-select');
-  sel.innerHTML='<option value="">— Elegí un producto para desarrollar —</option>'+
-    PRODUCTS.map(p=>`<option value="${p.pid}" ${p.pid===DEV_CUR?'selected':''}>${esc(p.nombre||'(sin nombre)')} — ${DEV_STATUS[(p.dev_estado||'')]}</option>`).join('');
+function renderDevFolders(){
+  const q=($('#dev-search')?.value||'').toLowerCase().trim();
+  const list=PRODUCTS.filter(p=>!q||[p.nombre,p.id].some(v=>(v||'').toLowerCase().includes(q)));
+  const box=$('#dev-folders'); const c=$('#dev-count'); if(c) c.textContent=`${list.length} producto${list.length===1?'':'s'}`;
+  const empty=$('#dev-empty');
+  if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">🚀</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
+  empty.style.display='none';
+  if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fic">📁</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${devBadge(p)}</div>`).join('');
 }
-function onDevSelect(pid){ DEV_CUR=pid||null; if(pid) openDevEditor(pid); else { $('#dev-editor').innerHTML=''; $('#dev-empty').style.display=''; } }
+function devBackToFolders(){ DEV_CUR=null; $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML=''; $('#dev-folders-wrap').style.display=''; renderDevFolders(); }
+function devOnEstado(){ const s=ddVal('d_dev_estado'); const b=$('#dev-badge'); if(b) b.innerHTML=devBadge({dev_estado:s}); }
 function openDevEditor(pid){
   const p=PRODUCTS.find(x=>x.pid===pid); if(!p){ return; }
   DEV_CUR=pid;
-  $('#dev-empty').style.display='none';
+  $('#dev-folders-wrap').style.display='none';
+  $('#dev-editor').style.display='';
   const val=k=>{
     if(k==='dev_nombre') return p.dev_nombre||p.nombre||'';
     if(k==='dev_precio_venta') return p.dev_precio_venta||p.precio_venta||'';
     return p[k]||'';
   };
   let html=`<div class="devbar">
-    <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> ${devBadge(p)}</div>
+    <button class="btn ghost" type="button" onclick="devBackToFolders()" style="padding:8px 12px">← Productos</button>
+    <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="dev-badge">${devBadge(p)}</span></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
-      <label style="font-size:12px;color:var(--sub)">Estado:
-        <select id="d_dev_estado">
-          <option value="">Aún no desarrollado</option>
-          <option value="en_curso" ${p.dev_estado==='en_curso'?'selected':''}>En curso</option>
-          <option value="completado" ${p.dev_estado==='completado'?'selected':''}>Completado</option>
-        </select></label>
+      <span style="font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Estado:${ddHtml('d_dev_estado', p.dev_estado||'', [{val:'',label:'Aún no desarrollado'},{val:'en_curso',label:'En curso'},{val:'completado',label:'Completado'}], 'devOnEstado')}</span>
       <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
       <button class="btn" type="button" onclick="saveDev()">💾 Guardar</button>
     </div>
@@ -627,13 +683,13 @@ async function saveDev(){
   const p=PRODUCTS.find(x=>x.pid===DEV_CUR); if(!p) return;
   const {pid,_created,_updated,...data}=p;
   DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
-  const es=document.getElementById('d_dev_estado'); data.dev_estado = es?es.value:'';
+  data.dev_estado = ddVal('d_dev_estado');
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
     if(!r.ok) throw new Error('http '+r.status);
     const r2=await fetch(API); PRODUCTS=await r2.json(); $('#pcount').textContent=PRODUCTS.length;
-    buildDevSelect(); openDevEditor(DEV_CUR);
+    const np=PRODUCTS.find(x=>x.pid===DEV_CUR); const b=$('#dev-badge'); if(b&&np) b.innerHTML=devBadge(np);
     toast('✓ Desarrollo guardado');
     const m2=$('#dev-msg'); if(m2){m2.className='msg ok';m2.textContent='✓ Guardado';setTimeout(()=>{const x=$('#dev-msg');if(x)x.textContent='';},2000);}
   }catch(e){ const m=$('#dev-msg'); if(m){m.className='msg err';m.textContent='Error: '+e.message;} }
@@ -648,14 +704,14 @@ const MESES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','
 function nombreMes(ym){ const [y,m]=ym.split('-'); return MESES[+m-1]+' '+y; }
 
 function buildMonthSelect(){
-  const sel=$('#rep-month'); const prev=sel.value;
+  const wrap=$('#rep-month-wrap'); const prev=ddVal('rep-month');
   const meses=[...new Set(PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo).map(p=>p.fecha_testeo.slice(0,7)))].sort().reverse();
-  if(!meses.length){ sel.innerHTML='<option value="">— sin testeos —</option>'; return; }
-  sel.innerHTML=meses.map(m=>`<option value="${m}" ${m===prev?'selected':''}>${nombreMes(m)}</option>`).join('');
-  if(!prev || !meses.includes(prev)) sel.value=meses[0];
+  if(!meses.length){ wrap.innerHTML=ddHtml('rep-month','',[{val:'',label:'— sin testeos —'}],'renderReport'); return; }
+  const val=(prev&&meses.includes(prev))?prev:meses[0];
+  wrap.innerHTML=ddHtml('rep-month', val, meses.map(m=>({val:m,label:nombreMes(m)})), 'renderReport');
 }
 function renderReport(){
-  const month=$('#rep-month').value;
+  const month=ddVal('rep-month');
   const body=$('#rep-body');
   const q=($('#rep-search')?.value||'').toLowerCase().trim();
   const tested=PRODUCTS.filter(p=>p.testeado==='si'&&p.fecha_testeo&&p.fecha_testeo.slice(0,7)===month&&(!q||(p.nombre||'').toLowerCase().includes(q)));
@@ -723,31 +779,34 @@ function scrBadge(p){
 }
 async function loadScr(){
   try{ const r=await fetch(API); PRODUCTS=await r.json(); $('#pcount').textContent=PRODUCTS.length; }catch(e){}
-  buildScrSelect();
-  if(SCR_CUR && PRODUCTS.some(p=>p.pid===SCR_CUR)) openScrEditor(SCR_CUR);
-  else { SCR_CUR=null; $('#scr-editor').innerHTML=''; $('#scr-empty').style.display=''; }
+  SCR_CUR=null;
+  $('#scr-editor').style.display='none'; $('#scr-editor').innerHTML='';
+  $('#scr-folders-wrap').style.display='';
+  renderScrFolders();
 }
-function buildScrSelect(){
-  const sel=$('#scr-select');
-  sel.innerHTML='<option value="">— Elegí un producto —</option>'+
-    PRODUCTS.map(p=>`<option value="${p.pid}" ${p.pid===SCR_CUR?'selected':''}>${esc(p.nombre||'(sin nombre)')} — ${SCR_STATUS_TXT[(p.scr_estado||'')]}</option>`).join('');
+function renderScrFolders(){
+  const q=($('#scr-search')?.value||'').toLowerCase().trim();
+  const list=PRODUCTS.filter(p=>!q||[p.nombre,p.id].some(v=>(v||'').toLowerCase().includes(q)));
+  const box=$('#scr-folders'); const c=$('#scr-count'); if(c) c.textContent=`${list.length} producto${list.length===1?'':'s'}`;
+  const empty=$('#scr-empty');
+  if(!PRODUCTS.length){ box.innerHTML=''; empty.style.display=''; empty.innerHTML=`<div class="big">📝</div>Todavía no hay productos.<br>Agregá el primero en "Agregar producto".`; return; }
+  empty.style.display='none';
+  if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
+  box.innerHTML=list.map(p=>`<div class="folder" onclick="openScrEditor('${p.pid}')"><div class="fic">📁</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div>${scrBadge(p)}</div>`).join('');
 }
-function onScrSelect(pid){ SCR_CUR=pid||null; if(pid) openScrEditor(pid); else { $('#scr-editor').innerHTML=''; $('#scr-empty').style.display=''; } }
+function scrBackToFolders(){ SCR_CUR=null; $('#scr-editor').style.display='none'; $('#scr-editor').innerHTML=''; $('#scr-folders-wrap').style.display=''; renderScrFolders(); }
 function openScrEditor(pid){
   const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
   SCR_CUR=pid;
-  $('#scr-empty').style.display='none';
+  $('#scr-folders-wrap').style.display='none';
+  $('#scr-editor').style.display='';
   SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
   SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
   let html=`<div class="devbar">
+    <button class="btn ghost" type="button" onclick="scrBackToFolders()" style="padding:8px 12px">← Productos</button>
     <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="scr-badge">${scrBadge(p)}</span></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
-      <label style="font-size:12px;color:var(--sub)">Estado:
-        <select id="s_scr_estado" onchange="scrOnEstado()">
-          <option value="">Sin empezar</option>
-          <option value="en_curso" ${p.scr_estado==='en_curso'?'selected':''}>En curso</option>
-          <option value="completado" ${p.scr_estado==='completado'?'selected':''}>Completado</option>
-        </select></label>
+      <span style="font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Estado:${ddHtml('s_scr_estado', p.scr_estado||'', [{val:'',label:'Sin empezar'},{val:'en_curso',label:'En curso'},{val:'completado',label:'Completado'}], 'scrOnEstado')}</span>
       <button class="btn" type="button" onclick="saveScr()">💾 Guardar</button>
     </div>
   </div>
@@ -772,7 +831,7 @@ function openScrEditor(pid){
   $('#scr-editor').innerHTML=html;
   renderScrVars();
 }
-function scrOnEstado(){ const s=document.getElementById('s_scr_estado').value; const b=$('#scr-badge'); if(b) b.innerHTML=scrBadge({scr_estado:s}); }
+function scrOnEstado(){ const s=ddVal('s_scr_estado'); const b=$('#scr-badge'); if(b) b.innerHTML=scrBadge({scr_estado:s}); }
 function scrSub(which){
   $('#scrpanel-scripts').style.display = which==='scripts'?'':'none';
   $('#scrpanel-vars').style.display = which==='vars'?'':'none';
@@ -790,7 +849,7 @@ function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+cat
 function scrLabel(catKey){ const c=SCR_CATS.find(x=>x.key===catKey); return c?c.label:catKey; }
 function scrSyncVars(){
   SCR_VARS.forEach((g,gi)=>{
-    const b=document.getElementById('scrv_base_'+gi); if(b) g.base=b.value;
+    const b=document.getElementById('scrv_base_'+gi); if(b) g.base=b.dataset.value;
     g.rows=g.rows.map((_,ri)=>{ const t=document.getElementById('scrv_row_'+gi+'_'+ri); return t?t.value:''; });
   });
 }
@@ -798,7 +857,7 @@ function renderScrVars(){
   const box=$('#scr-vars-list'); if(!box) return;
   if(!SCR_VARS.length){ box.innerHTML=`<div class="empty" style="padding:26px"><div class="big">🔀</div>Todavía no hay variaciones.<br>Elegí un script base y agregá las variaciones que quieras testear (2, 3, las que sean).</div>`; return; }
   box.innerHTML=SCR_VARS.map((g,gi)=>{
-    const baseOpts=SCR_CATS.map(c=>`<option value="${c.key}" ${c.key===g.base?'selected':''}>${c.icon} ${c.label}</option>`).join('');
+    const baseDD=ddHtml('scrv_base_'+gi, g.base, SCR_CATS.map(c=>({val:c.key,label:c.icon+' '+c.label})), 'scrBaseChanged');
     const baseTxt=esc(scrCurScriptText(g.base)||'(este script está vacío — escribilo en "Scripts de testeos")');
     const rows=g.rows.map((v,ri)=>`
       <div class="scr-varrow">
@@ -809,8 +868,7 @@ function renderScrVars(){
       </div>`).join('');
     return `<div class="scr-vargroup">
       <div class="scr-vargroup-h">
-        <label style="font-size:12px;color:var(--sub)">Script base:
-          <select id="scrv_base_${gi}" onchange="scrChangeBase(${gi})">${baseOpts}</select></label>
+        <span style="font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Script base:${baseDD}</span>
         <button class="cpy" type="button" title="Quitar esta variación" onclick="scrDelGroup(${gi})" style="margin-left:auto">✕</button>
       </div>
       <div class="scr-basetxt" id="scrv_basetxt_${gi}">${baseTxt}</div>
@@ -824,6 +882,7 @@ function scrDelGroup(gi){ scrSyncVars(); SCR_VARS.splice(gi,1); renderScrVars();
 function scrAddRow(gi){ scrSyncVars(); SCR_VARS[gi].rows.push(''); renderScrVars(); }
 function scrDelRow(gi,ri){ scrSyncVars(); SCR_VARS[gi].rows.splice(ri,1); if(!SCR_VARS[gi].rows.length) SCR_VARS[gi].rows.push(''); renderScrVars(); }
 function scrChangeBase(gi){ scrSyncVars(); const el=document.getElementById('scrv_basetxt_'+gi); if(el) el.textContent=scrCurScriptText(SCR_VARS[gi].base)||'(este script está vacío — escribilo en "Scripts de testeos")'; }
+function scrBaseChanged(dd){ const gi=+dd.id.split('_').pop(); scrChangeBase(gi); }
 function scrCopy(id){ const el=document.getElementById(id); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
 async function saveScr(){
   if(!SCR_CUR) return;
@@ -831,7 +890,7 @@ async function saveScr(){
   scrSyncVars();
   const {pid,_created,_updated,...data}=p;
   SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });
-  const es=document.getElementById('s_scr_estado'); data.scr_estado = es?es.value:'';
+  data.scr_estado = ddVal('s_scr_estado');
   data.scr_variaciones = SCR_VARS
     .map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)}))
     .filter(g=>g.rows.length);
@@ -840,7 +899,6 @@ async function saveScr(){
     const r=await fetch(API+'/'+encodeURIComponent(SCR_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
     if(!r.ok) throw new Error('http '+r.status);
     const r2=await fetch(API); PRODUCTS=await r2.json(); $('#pcount').textContent=PRODUCTS.length;
-    buildScrSelect();
     const np=PRODUCTS.find(x=>x.pid===SCR_CUR); const b=$('#scr-badge'); if(b&&np) b.innerHTML=scrBadge(np);
     toast('✓ Scripts guardados');
     if(msg){msg.className='msg ok';msg.textContent='✓ Guardado para siempre';setTimeout(()=>{const x=$('#scr-msg');if(x)x.textContent='';},2200);}

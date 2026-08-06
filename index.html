@@ -90,6 +90,9 @@
   .testtog:hover .testtog-box{border-color:var(--green)}
   .testtog.on{color:var(--green)}
   .testtog.on .testtog-box{background:var(--green);border-color:var(--green);color:#04120c}
+  /* Botón abrir link landing (esquina de la tarjeta) */
+  .golink{position:absolute;top:9px;right:9px;z-index:2;width:30px;height:30px;border-radius:50%;border:2px solid rgba(255,255,255,.6);background:rgba(0,0,0,.5);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;backdrop-filter:blur(2px);text-decoration:none;transition:.15s}
+  .golink:hover{border-color:var(--brand2);color:var(--brand2);background:rgba(0,0,0,.7)}
   .pcard .thumb img{width:100%;height:100%;object-fit:cover}
   .pcard .body{padding:12px 14px}
   .pcard .body h3{margin:0 0 6px;font-size:15px;font-weight:700;line-height:1.25}
@@ -459,6 +462,13 @@ function modalToggleTest(){
   d.value = d.value ? '' : new Date().toISOString().slice(0,10);
   updateModalTestBtn(!!d.value);
 }
+function openLanding(pid, ev){
+  if(ev) ev.stopPropagation();
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p||!p.link_landing) return;
+  let u=String(p.link_landing).trim();
+  if(!/^https?:\/\//i.test(u)) u='https://'+u;
+  window.open(u,'_blank','noopener');
+}
 async function toggleTesteado(pid, ev){
   if(ev) ev.stopPropagation();
   const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
@@ -528,7 +538,7 @@ function renderList(){
   if(!list.length){ g.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
   g.innerHTML=list.map(p=>`
     <div class="pcard" onclick="abrir('${p.pid}')">
-      <div class="thumb">${p.foto?`<img src="${p.foto}">`:'📷'}</div>
+      <div class="thumb">${p.link_landing?`<button class="golink" type="button" onclick="openLanding('${p.pid}',event)" title="Abrir link landing">↗</button>`:''}${p.foto?`<img src="${p.foto}">`:'📷'}</div>
       <div class="body">
         <h3 style="margin:0">${esc(p.nombre)||'(sin nombre)'}</h3>
         <div style="font-size:12px;color:var(--sub);margin-top:4px">ID: ${esc(p.id)||'—'}</div>

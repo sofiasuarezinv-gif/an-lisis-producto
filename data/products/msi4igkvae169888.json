@@ -1,1 +1,1 @@
-{"data":{"nombre":"__TESTBUG__","id":"TB"},"created_at":"2026-08-06T23:04:46.447Z","updated_at":"2026-08-06T23:04:46.447Z"}
+{"data":{"nombre":"__TESTBUG__","id":"TB","dev_marca":"MARCA_X","scr_emocional":"EMO_X","angulos":[{"t":"A1","c":false,"cats":["emocional"]}]},"created_at":"2026-08-06T23:04:46.447Z","updated_at":"2026-08-06T23:04:48.827Z"}

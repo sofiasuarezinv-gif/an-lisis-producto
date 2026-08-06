@@ -108,6 +108,25 @@
   .devblock input,.devblock textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
   .devblock textarea{min-height:84px;resize:vertical;line-height:1.5}
   .devblock input:focus,.devblock textarea:focus{border-color:var(--brand)}
+
+  /* Scripts y anuncios · sub-pestañas */
+  .subtabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .subtab{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:9px 16px;border-radius:10px;font:700 13px "Inter";cursor:pointer;transition:.15s}
+  .subtab:hover{color:var(--ink)}
+  .subtab.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .subtabs.mini{margin-bottom:12px}
+  .subtabs.mini .subtab{padding:7px 13px;font-size:12.5px;border-radius:9px}
+  .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:34px;height:32px;border-radius:8px;cursor:pointer;font-size:14px}
+  .cpy:hover{color:var(--ink);border-color:var(--brand)}
+  .scr-vargroup{background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .scr-vargroup-h{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap}
+  .scr-vargroup-h select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:6px 8px;font:600 13px "Inter";outline:none;margin-left:6px}
+  .scr-basetxt{background:var(--bg2);border:1px dashed var(--line);border-radius:9px;padding:9px 11px;color:var(--sub);font-size:12.5px;white-space:pre-wrap;margin-bottom:10px;max-height:130px;overflow:auto}
+  .scr-varrow{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px}
+  .scr-varnum{flex:none;width:26px;height:26px;border-radius:7px;background:var(--bg3);border:1px solid var(--line);color:var(--brand2);font:700 12px "Inter";display:flex;align-items:center;justify-content:center;margin-top:6px}
+  .scr-varrow textarea{flex:1;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none;min-height:60px;resize:vertical;line-height:1.5}
+  .scr-varrow textarea:focus{border-color:var(--brand)}
+  .scr-varrow .cpy{flex:none}
 </style>
 </head>
 <body>
@@ -129,6 +148,7 @@
     <div class="tab" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
     <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
     <div class="tab" id="tab-dev" onclick="showTab('dev')">🚀 Desarrollo de producto</div>
+    <div class="tab" id="tab-scr" onclick="showTab('scr')">📝 Scripts y anuncios</div>
   </div>
 
   <!-- AGREGAR -->
@@ -174,6 +194,17 @@
     </div>
     <div id="dev-empty" class="empty"><div class="big">🚀</div>Elegí un producto arriba para ver o empezar su desarrollo.<br>Cada bloque tiene su botón 📋 para copiar, y arriba está "Copiar todo".</div>
     <div id="dev-editor"></div>
+  </div>
+
+  <!-- SCRIPTS Y ANUNCIOS -->
+  <div id="view-scr" style="display:none">
+    <div class="toolbar">
+      <select id="scr-select" onchange="onScrSelect(this.value)" style="flex:1;min-width:220px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 14px;font:600 14px 'Inter';outline:none">
+        <option value="">— Elegí un producto —</option>
+      </select>
+    </div>
+    <div id="scr-empty" class="empty"><div class="big">📝</div>Elegí un producto arriba para escribir sus scripts de testeo y variaciones.<br>Cada bloque tiene su botón 📋 para copiar. Todo se guarda para siempre.</div>
+    <div id="scr-editor"></div>
   </div>
 </div>
 
@@ -489,13 +520,16 @@ function showTab(t){
   $('#view-list').style.display = t==='list'?'':'none';
   $('#view-report').style.display = t==='report'?'':'none';
   $('#view-dev').style.display = t==='dev'?'':'none';
+  $('#view-scr').style.display = t==='scr'?'':'none';
   $('#tab-add').classList.toggle('active',t==='add');
   $('#tab-list').classList.toggle('active',t==='list');
   $('#tab-report').classList.toggle('active',t==='report');
   $('#tab-dev').classList.toggle('active',t==='dev');
+  $('#tab-scr').classList.toggle('active',t==='scr');
   if(t==='list') load();
   if(t==='report') loadReport();
   if(t==='dev') loadDev();
+  if(t==='scr') loadScr();
 }
 
 // ─── Desarrollo de producto ───
@@ -667,6 +701,150 @@ async function importar(ev){
     await load(); toast('Importación lista');
   }catch(e){ alert('No pude importar: '+e.message); }
   ev.target.value='';
+}
+
+// ─── Scripts y anuncios ───
+const SCR_CATS = [
+  {key:'emocional',   label:'Emocional',   icon:'❤️'},
+  {key:'comparacion', label:'Comparación', icon:'⚖️'},
+  {key:'beneficios',  label:'Beneficios',  icon:'✨'},
+  {key:'testimonio',  label:'Testimonio',  icon:'🗣️'},
+  {key:'validacion',  label:'Validación',  icon:'✅'},
+];
+const SCR_STATUS_TXT={'':'Sin empezar','en_curso':'En curso','completado':'Completado'};
+let SCR_CUR=null;
+let SCR_VARS=[];   // [{base:'emocional', rows:['','']}]
+
+function scrBadge(p){
+  const s=(p&&p.scr_estado)||'';
+  const map={'':['var(--sub)','⚪'],'en_curso':['var(--amber)','🟡'],'completado':['var(--green)','✅']};
+  const m=map[s]||map[''];
+  return `<span class="chip" style="color:${m[0]};border-color:${m[0]}">${m[1]} ${SCR_STATUS_TXT[s]}</span>`;
+}
+async function loadScr(){
+  try{ const r=await fetch(API); PRODUCTS=await r.json(); $('#pcount').textContent=PRODUCTS.length; }catch(e){}
+  buildScrSelect();
+  if(SCR_CUR && PRODUCTS.some(p=>p.pid===SCR_CUR)) openScrEditor(SCR_CUR);
+  else { SCR_CUR=null; $('#scr-editor').innerHTML=''; $('#scr-empty').style.display=''; }
+}
+function buildScrSelect(){
+  const sel=$('#scr-select');
+  sel.innerHTML='<option value="">— Elegí un producto —</option>'+
+    PRODUCTS.map(p=>`<option value="${p.pid}" ${p.pid===SCR_CUR?'selected':''}>${esc(p.nombre||'(sin nombre)')} — ${SCR_STATUS_TXT[(p.scr_estado||'')]}</option>`).join('');
+}
+function onScrSelect(pid){ SCR_CUR=pid||null; if(pid) openScrEditor(pid); else { $('#scr-editor').innerHTML=''; $('#scr-empty').style.display=''; } }
+function openScrEditor(pid){
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
+  SCR_CUR=pid;
+  $('#scr-empty').style.display='none';
+  SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
+  SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
+  let html=`<div class="devbar">
+    <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="scr-badge">${scrBadge(p)}</span></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto">
+      <label style="font-size:12px;color:var(--sub)">Estado:
+        <select id="s_scr_estado" onchange="scrOnEstado()">
+          <option value="">Sin empezar</option>
+          <option value="en_curso" ${p.scr_estado==='en_curso'?'selected':''}>En curso</option>
+          <option value="completado" ${p.scr_estado==='completado'?'selected':''}>Completado</option>
+        </select></label>
+      <button class="btn" type="button" onclick="saveScr()">💾 Guardar</button>
+    </div>
+  </div>
+  <div class="subtabs">
+    <div class="subtab active" id="scrsub-scripts" onclick="scrSub('scripts')">📝 Scripts de testeos</div>
+    <div class="subtab" id="scrsub-vars" onclick="scrSub('vars')">🔀 Variaciones</div>
+  </div>
+  <div id="scrpanel-scripts">
+    <div class="subtabs mini">`+SCR_CATS.map((c,i)=>`<div class="subtab ${i===0?'active':''}" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`</div>`+
+  SCR_CATS.map((c,i)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:${i===0?'block':'none'}">
+      <div class="devblock">
+        <div class="devblock-h"><span>${c.icon} Script ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_scr_${c.key}')">📋</button></div>
+        <textarea id="s_scr_${c.key}" style="min-height:150px" placeholder="Escribí acá el script de testeo ${c.label.toLowerCase()}…">${esc(p['scr_'+c.key]||'')}</textarea>
+      </div>
+    </div>`).join('')+`
+  </div>
+  <div id="scrpanel-vars" style="display:none">
+    <div id="scr-vars-list"></div>
+    <button class="btn ghost" type="button" onclick="scrAddGroup()" style="margin-top:4px">➕ Agregar variación de un script</button>
+  </div>
+  <div class="actions"><button class="btn" type="button" onclick="saveScr()">💾 Guardar</button><span class="msg" id="scr-msg"></span></div>`;
+  $('#scr-editor').innerHTML=html;
+  renderScrVars();
+}
+function scrOnEstado(){ const s=document.getElementById('s_scr_estado').value; const b=$('#scr-badge'); if(b) b.innerHTML=scrBadge({scr_estado:s}); }
+function scrSub(which){
+  $('#scrpanel-scripts').style.display = which==='scripts'?'':'none';
+  $('#scrpanel-vars').style.display = which==='vars'?'':'none';
+  $('#scrsub-scripts').classList.toggle('active',which==='scripts');
+  $('#scrsub-vars').classList.toggle('active',which==='vars');
+  if(which==='vars') renderScrVars();
+}
+function scrCat(key){
+  SCR_CATS.forEach(c=>{
+    document.getElementById('scrcp-'+c.key).style.display = c.key===key?'block':'none';
+    document.getElementById('scrcat-'+c.key).classList.toggle('active',c.key===key);
+  });
+}
+function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+catKey); return el?el.value:''; }
+function scrLabel(catKey){ const c=SCR_CATS.find(x=>x.key===catKey); return c?c.label:catKey; }
+function scrSyncVars(){
+  SCR_VARS.forEach((g,gi)=>{
+    const b=document.getElementById('scrv_base_'+gi); if(b) g.base=b.value;
+    g.rows=g.rows.map((_,ri)=>{ const t=document.getElementById('scrv_row_'+gi+'_'+ri); return t?t.value:''; });
+  });
+}
+function renderScrVars(){
+  const box=$('#scr-vars-list'); if(!box) return;
+  if(!SCR_VARS.length){ box.innerHTML=`<div class="empty" style="padding:26px"><div class="big">🔀</div>Todavía no hay variaciones.<br>Elegí un script base y agregá las variaciones que quieras testear (2, 3, las que sean).</div>`; return; }
+  box.innerHTML=SCR_VARS.map((g,gi)=>{
+    const baseOpts=SCR_CATS.map(c=>`<option value="${c.key}" ${c.key===g.base?'selected':''}>${c.icon} ${c.label}</option>`).join('');
+    const baseTxt=esc(scrCurScriptText(g.base)||'(este script está vacío — escribilo en "Scripts de testeos")');
+    const rows=g.rows.map((v,ri)=>`
+      <div class="scr-varrow">
+        <span class="scr-varnum">${ri+1}</span>
+        <textarea id="scrv_row_${gi}_${ri}" placeholder="Variación ${ri+1}…">${esc(v)}</textarea>
+        <button class="cpy" type="button" title="Copiar" onclick="scrCopy('scrv_row_${gi}_${ri}')">📋</button>
+        <button class="cpy" type="button" title="Quitar fila" onclick="scrDelRow(${gi},${ri})">🗑️</button>
+      </div>`).join('');
+    return `<div class="scr-vargroup">
+      <div class="scr-vargroup-h">
+        <label style="font-size:12px;color:var(--sub)">Script base:
+          <select id="scrv_base_${gi}" onchange="scrChangeBase(${gi})">${baseOpts}</select></label>
+        <button class="cpy" type="button" title="Quitar esta variación" onclick="scrDelGroup(${gi})" style="margin-left:auto">✕</button>
+      </div>
+      <div class="scr-basetxt" id="scrv_basetxt_${gi}">${baseTxt}</div>
+      ${rows}
+      <button class="btn ghost" type="button" onclick="scrAddRow(${gi})" style="margin-top:6px;padding:8px 14px;font-size:13px">➕ Agregar fila</button>
+    </div>`;
+  }).join('');
+}
+function scrAddGroup(){ scrSyncVars(); SCR_VARS.push({base:SCR_CATS[0].key, rows:['']}); renderScrVars(); }
+function scrDelGroup(gi){ scrSyncVars(); SCR_VARS.splice(gi,1); renderScrVars(); }
+function scrAddRow(gi){ scrSyncVars(); SCR_VARS[gi].rows.push(''); renderScrVars(); }
+function scrDelRow(gi,ri){ scrSyncVars(); SCR_VARS[gi].rows.splice(ri,1); if(!SCR_VARS[gi].rows.length) SCR_VARS[gi].rows.push(''); renderScrVars(); }
+function scrChangeBase(gi){ scrSyncVars(); const el=document.getElementById('scrv_basetxt_'+gi); if(el) el.textContent=scrCurScriptText(SCR_VARS[gi].base)||'(este script está vacío — escribilo en "Scripts de testeos")'; }
+function scrCopy(id){ const el=document.getElementById(id); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+async function saveScr(){
+  if(!SCR_CUR) return;
+  const p=PRODUCTS.find(x=>x.pid===SCR_CUR); if(!p) return;
+  scrSyncVars();
+  const {pid,_created,_updated,...data}=p;
+  SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });
+  const es=document.getElementById('s_scr_estado'); data.scr_estado = es?es.value:'';
+  data.scr_variaciones = SCR_VARS
+    .map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)}))
+    .filter(g=>g.rows.length);
+  const msg=$('#scr-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
+  try{
+    const r=await fetch(API+'/'+encodeURIComponent(SCR_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http '+r.status);
+    const r2=await fetch(API); PRODUCTS=await r2.json(); $('#pcount').textContent=PRODUCTS.length;
+    buildScrSelect();
+    const np=PRODUCTS.find(x=>x.pid===SCR_CUR); const b=$('#scr-badge'); if(b&&np) b.innerHTML=scrBadge(np);
+    toast('✓ Scripts guardados');
+    if(msg){msg.className='msg ok';msg.textContent='✓ Guardado para siempre';setTimeout(()=>{const x=$('#scr-msg');if(x)x.textContent='';},2200);}
+  }catch(e){ const m=$('#scr-msg'); if(m){m.className='msg err';m.textContent='Error: '+e.message;} }
 }
 
 // init

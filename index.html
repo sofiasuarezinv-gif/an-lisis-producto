@@ -117,6 +117,15 @@
   .ang-row input[type=text]:focus{border-color:var(--brand)}
   .ang-row input[type=checkbox]:checked + input[type=text]{color:var(--sub);text-decoration:line-through;text-decoration-color:var(--green)}
   .ang-row .cpy{flex:none}
+  .ang-item{margin-bottom:12px}
+  .ang-item .ang-row{margin-bottom:6px}
+  .ang-cats{display:flex;flex-wrap:wrap;gap:6px;padding-left:29px}
+  .angcat{background:var(--bg2);border:1px solid var(--line);color:var(--sub);padding:4px 11px;border-radius:20px;font:600 11.5px "Inter";cursor:pointer;transition:.12s}
+  .angcat:hover{color:var(--ink);border-color:var(--brand)}
+  .angcat.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .cat-angs{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:12px}
+  .cat-angs-h{font-size:12px;font-weight:700;color:var(--brand2);margin-bottom:6px}
+  .cat-ang{font-size:13.5px;color:var(--ink);padding:3px 0}
   .devblock-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
   .devblock-h span{font-size:12.5px;font-weight:700;color:var(--brand2);letter-spacing:.01em}
   .devblock .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:36px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
@@ -859,6 +868,7 @@ function openScrEditor(pid){
         <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
       </div>`+
   SCR_CATS.map((c)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:none">
+      <div id="scrangs-${c.key}"></div>
       <div class="devblock">
         <div class="devblock-h"><span>${c.icon} Script ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_scr_${c.key}')">📋</button></div>
         <textarea id="s_scr_${c.key}" style="min-height:150px" placeholder="Escribí acá el script de testeo ${c.label.toLowerCase()}…">${esc(p['scr_'+c.key]||'')}</textarea>
@@ -872,7 +882,7 @@ function openScrEditor(pid){
   <div class="actions"><button class="btn" type="button" onclick="saveScr()">💾 Guardar</button><span class="msg" id="scr-msg"></span></div>`;
   $('#scr-editor').innerHTML=html;
   renderScrVars();
-  angInit(p,'scr-ang-list');
+  angInit(p,'scr-ang-list',true);
 }
 function scrOnEstado(){ const s=ddVal('s_scr_estado'); const b=$('#scr-badge'); if(b) b.innerHTML=scrBadge({scr_estado:s}); }
 function scrSub(which){
@@ -888,6 +898,7 @@ function scrCat(key){
     const cp=document.getElementById('scrcp-'+k); if(cp) cp.style.display = k===key?'block':'none';
     const tab=document.getElementById('scrcat-'+k); if(tab) tab.classList.toggle('active',k===key);
   });
+  if(key!=='angulos') scrRenderCatAngs(key);
 }
 function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+catKey); return el?el.value:''; }
 function scrLabel(catKey){ const c=SCR_CATS.find(x=>x.key===catKey); return c?c.label:catKey; }
@@ -951,25 +962,36 @@ async function saveScr(){
 }
 
 // ─── Ángulos de venta (checklist compartido: Desarrollo + Scripts) ───
-let ANG=[];        // [{t:'texto', c:booleano}]
+let ANG=[];        // [{t:'texto', c:booleano, cats:[]}]
 let ANG_BOX=null;  // id del contenedor donde se pinta
-function angInit(p, boxId){ ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : []; ANG_BOX=boxId; angRender(); }
+let ANG_WITHCATS=false; // mostrar chips de categoría (solo en Scripts y anuncios)
+function angInit(p, boxId, withCats){ ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : []; ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; }); ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender(); }
 function angSync(){ ANG.forEach((a,i)=>{ const t=document.getElementById('ang_t_'+i); const c=document.getElementById('ang_c_'+i); if(t)a.t=t.value; if(c)a.c=c.checked; }); }
 function angRender(){
   const box=document.getElementById(ANG_BOX); if(!box) return;
   if(!ANG.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:4px 2px 10px">Todavía no hay ángulos. Agregá los ángulos de venta del producto con el botón de abajo.</div>`; return; }
   box.innerHTML=ANG.map((a,i)=>`
-    <div class="ang-row">
-      <input type="checkbox" id="ang_c_${i}" ${a.c?'checked':''} onchange="angSync()">
-      <input type="text" id="ang_t_${i}" value="${esc(a.t||'')}" placeholder="Ángulo de venta ${i+1}…">
-      <button class="cpy" type="button" title="Copiar" onclick="angCopy(${i})">📋</button>
-      <button class="cpy" type="button" title="Quitar" onclick="angDel(${i})">🗑️</button>
+    <div class="ang-item">
+      <div class="ang-row">
+        <input type="checkbox" id="ang_c_${i}" ${a.c?'checked':''} onchange="angSync()">
+        <input type="text" id="ang_t_${i}" value="${esc(a.t||'')}" placeholder="Ángulo de venta ${i+1}…">
+        <button class="cpy" type="button" title="Copiar" onclick="angCopy(${i})">📋</button>
+        <button class="cpy" type="button" title="Quitar" onclick="angDel(${i})">🗑️</button>
+      </div>`+(ANG_WITHCATS?`
+      <div class="ang-cats">`+SCR_CATS.map(c=>`<button type="button" class="angcat ${(a.cats||[]).includes(c.key)?'on':''}" onclick="angToggleCat(${i},'${c.key}')">${c.label}</button>`).join('')+`</div>`:'')+`
     </div>`).join('');
 }
-function angAdd(){ angSync(); ANG.push({t:'',c:false}); angRender(); const el=document.getElementById('ang_t_'+(ANG.length-1)); if(el) el.focus(); }
+function angToggleCat(i,key){ angSync(); const a=ANG[i]; if(!Array.isArray(a.cats)) a.cats=[]; const k=a.cats.indexOf(key); if(k>=0) a.cats.splice(k,1); else a.cats.push(key); angRender(); }
+function angAdd(){ angSync(); ANG.push({t:'',c:false,cats:[]}); angRender(); const el=document.getElementById('ang_t_'+(ANG.length-1)); if(el) el.focus(); }
 function angDel(i){ angSync(); ANG.splice(i,1); angRender(); }
 function angCopy(i){ const el=document.getElementById('ang_t_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
-function angCollect(){ angSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c})).filter(a=>a.t); }
+function angCollect(){ angSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c,cats:Array.isArray(a.cats)?a.cats.slice():[]})).filter(a=>a.t); }
+function scrRenderCatAngs(key){
+  const box=document.getElementById('scrangs-'+key); if(!box) return;
+  angSync();
+  const items=ANG.filter(a=>(a.cats||[]).includes(key) && String(a.t||'').trim());
+  box.innerHTML = items.length ? `<div class="cat-angs"><div class="cat-angs-h">🎯 Ángulos elegidos para este script</div>`+items.map(a=>`<div class="cat-ang">${a.c?'✅ ':'• '}${esc(a.t)}</div>`).join('')+`</div>` : '';
+}
 
 // init
 limpiar(); load();

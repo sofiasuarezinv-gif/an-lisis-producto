@@ -75,7 +75,15 @@
   .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
   .pcard{background:var(--bg1);border:1px solid var(--line);border-radius:14px;overflow:hidden;cursor:pointer;transition:.15s;display:flex;flex-direction:column}
   .pcard:hover{border-color:var(--brand);transform:translateY(-2px)}
-  .pcard .thumb{height:150px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:34px}
+  .pcard{position:relative}
+  .pcard .thumb{height:150px;background:var(--bg3);display:flex;align-items:center;justify-content:center;color:var(--sub);font-size:34px;position:relative}
+  /* Check de testeado (esquina tarjeta + banner modal) */
+  .testchk{width:30px;height:30px;flex:none;border-radius:50%;border:2px solid var(--line);background:var(--bg3);color:var(--sub);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;transition:.15s;padding:0}
+  .testchk:hover{border-color:var(--green);color:var(--green)}
+  .testchk.on{background:var(--green);border-color:var(--green);color:#04120c}
+  .testchk.corner{position:absolute;top:9px;right:9px;z-index:2;background:rgba(0,0,0,.5);border-color:rgba(255,255,255,.6);color:#fff;backdrop-filter:blur(2px)}
+  .testchk.corner:hover{border-color:var(--green);color:var(--green)}
+  .testchk.corner.on{background:var(--green);border-color:var(--green);color:#04120c}
   .pcard .thumb img{width:100%;height:100%;object-fit:cover}
   .pcard .body{padding:12px 14px}
   .pcard .body h3{margin:0 0 6px;font-size:15px;font-weight:700;line-height:1.25}
@@ -248,6 +256,7 @@
 <div class="overlay" id="overlay" onclick="if(event.target===this)cerrar()">
   <div class="modal">
     <div class="modal-h">
+      <button class="testchk" id="modal-testchk" type="button" onclick="modalToggleTest()" title="Marcar como testeado"></button>
       <strong id="modal-title" style="font-size:16px">Producto</strong>
       <button class="x" onclick="cerrar()">✕</button>
     </div>
@@ -414,40 +423,51 @@ function buildForm(pref, data){
 }
 function toggleSec(h){ h.classList.toggle('closed'); h.nextElementSibling.classList.toggle('hide'); }
 
-// Bloque siempre visible: fechas + estado de testeo
+// Un producto está "testeado" si tiene fecha de testeo. El check (esquina de
+// la tarjeta y del banner del modal) es lo que la activa/desactiva.
 function testeoBadge(data){
-  return data && data.testeado==='si'
-    ? `<span class="chip" style="color:var(--green);border-color:rgba(52,211,153,.4)">✅ Testeado${data.fecha_testeo?(' · '+esc(data.fecha_testeo)):''}</span>`
+  return data && data.fecha_testeo
+    ? `<span class="chip" style="color:var(--green);border-color:rgba(52,211,153,.4)">✅ Testeado · ${esc(data.fecha_testeo)}</span>`
     : `<span class="chip" style="color:var(--sub)">🕓 En cola</span>`;
 }
 function fechasBlock(pref, data){
   data=data||{};
-  const on = data.testeado==='si';
   return `<div class="card" style="margin:0;border-radius:0;border-top:1px solid var(--line)">
     <div class="sec-h" style="cursor:default">📅 Fechas y testeo</div>
     <div class="sec-b">
       <div class="grid">
         <div class="field"><label>Fecha (cuándo lo encontraste)</label><input type="date" id="${pref}fecha" value="${esc(data.fecha||'')}"></div>
         <div class="field"><label>Fecha de pauta</label><input type="date" id="${pref}fecha_pauta" value="${esc(data.fecha_pauta||'')}"></div>
+        <div class="field"><label>Fecha de testeo</label><input type="date" id="${pref}fecha_testeo" value="${esc(data.fecha_testeo||'')}" onchange="fechaTesteoChanged('${pref}')"></div>
       </div>
-      <div class="field" style="margin-top:4px">
-        <label>Estado de testeo</label>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink);font-size:14px;margin:0">
-            <input type="checkbox" id="${pref}testeado" ${on?'checked':''} onchange="onTesteo('${pref}')" style="width:auto"> Marcar como testeado
-          </label>
-          <input type="date" id="${pref}fecha_testeo" value="${esc(data.fecha_testeo||'')}" onchange="onTesteo('${pref}')" style="display:${on?'inline-block':'none'};width:auto">
-          <span id="${pref}testeo-badge">${testeoBadge(data)}</span>
-        </div>
-      </div>
+      <p style="color:var(--sub);font-size:12px;margin:8px 0 0">El check de "testeado" está en la esquina de la tarjeta y del título. Si ponés una fecha acá, queda marcado como testeado.</p>
     </div>
   </div>`;
 }
-function onTesteo(pref){
-  const c=document.getElementById(pref+'testeado'), d=document.getElementById(pref+'fecha_testeo'), b=document.getElementById(pref+'testeo-badge');
-  if(c.checked){ if(!d.value) d.value=new Date().toISOString().slice(0,10); d.style.display='inline-block'; }
-  else { d.style.display='none'; }
-  b.innerHTML=testeoBadge({testeado:c.checked?'si':'', fecha_testeo:d.value});
+function fechaTesteoChanged(pref){ if(pref==='e_') updateModalTestBtn(!!document.getElementById('e_fecha_testeo').value); }
+function updateModalTestBtn(on){
+  const b=document.getElementById('modal-testchk'); if(!b) return;
+  b.classList.toggle('on',!!on); b.textContent=on?'✓':'';
+  b.title = on ? 'Testeado ✅ · clic para quitar' : 'Marcar como testeado';
+}
+function modalToggleTest(){
+  const d=document.getElementById('e_fecha_testeo'); if(!d) return;
+  d.value = d.value ? '' : new Date().toISOString().slice(0,10);
+  updateModalTestBtn(!!d.value);
+}
+async function toggleTesteado(pid, ev){
+  if(ev) ev.stopPropagation();
+  const p=PRODUCTS.find(x=>x.pid===pid); if(!p) return;
+  const isOn=!!p.fecha_testeo;
+  const {pid:_p,_created,_updated,...data}=p;
+  if(isOn){ data.fecha_testeo=''; data.testeado=''; }
+  else { data.fecha_testeo=new Date().toISOString().slice(0,10); data.testeado='si'; }
+  try{
+    const r=await fetch(API+'/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});
+    if(!r.ok) throw new Error('http '+r.status);
+    await load();
+    toast(isOn?'Marcado como en cola':'✓ Marcado como testeado');
+  }catch(e){ toast('Error: '+e.message); }
 }
 
 function collect(pref){
@@ -457,8 +477,7 @@ function collect(pref){
     const el=document.getElementById(pref+f.key); if(el) o[f.key]=el.value.trim();
   });
   ['fecha','fecha_pauta','fecha_testeo'].forEach(k=>{ const el=document.getElementById(pref+k); if(el) o[k]=el.value.trim(); });
-  const tc=document.getElementById(pref+'testeado'); o.testeado = tc && tc.checked ? 'si' : '';
-  if(o.testeado!=='si') o.fecha_testeo='';
+  o.testeado = o.fecha_testeo ? 'si' : '';
   return o;
 }
 function markMissing(pref, data){
@@ -505,15 +524,12 @@ function renderList(){
   if(!list.length){ g.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
   g.innerHTML=list.map(p=>`
     <div class="pcard" onclick="abrir('${p.pid}')">
-      <div class="thumb">${p.foto?`<img src="${p.foto}">`:'📷'}</div>
+      <div class="thumb"><button class="testchk corner ${p.fecha_testeo?'on':''}" type="button" onclick="toggleTesteado('${p.pid}',event)" title="${p.fecha_testeo?'Testeado ✅ · clic para quitar':'Marcar como testeado'}">${p.fecha_testeo?'✓':''}</button>${p.foto?`<img src="${p.foto}">`:'📷'}</div>
       <div class="body">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-          <h3 style="margin:0">${esc(p.nombre)||'(sin nombre)'}</h3>
-          ${testeoBadge(p)}
-        </div>
+        <h3 style="margin:0">${esc(p.nombre)||'(sin nombre)'}</h3>
         <div style="font-size:12px;color:var(--sub);margin-top:4px">ID: ${esc(p.id)||'—'}</div>
         <div class="meta">
-          ${p.precio_proveedor?`<span class="chip price">Prov: $${esc(p.precio_proveedor)}</span>`:''}
+          ${p.precio_venta?`<span class="chip price">Precio venta: $${esc(p.precio_venta)}</span>`:''}
           ${p.stock?`<span class="chip stock">Stock: ${esc(p.stock)}</span>`:''}
           ${p.nombre_proveedor?`<span class="chip">${esc(p.nombre_proveedor)}</span>`:''}
         </div>
@@ -528,6 +544,7 @@ function abrir(pid){
   EDIT_PID=pid;
   $('#modal-title').textContent=p.nombre||'Producto';
   $('#modal-body').innerHTML=buildForm('e_',p);
+  updateModalTestBtn(!!p.fecha_testeo);
   $('#edit-msg').textContent='';
   $('#overlay').classList.add('show');
 }

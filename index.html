@@ -555,9 +555,13 @@ function abrir(pid){
 }
 function cerrar(){ $('#overlay').classList.remove('show'); EDIT_PID=null; }
 async function guardarEdicion(){
-  const pref='e_'; const data=collect(pref);
-  const miss=markMissing(pref,data); const msg=$('#edit-msg');
+  const pref='e_'; const collected=collect(pref);
+  const miss=markMissing(pref,collected); const msg=$('#edit-msg');
   if(miss){ msg.className='msg err'; msg.textContent='Faltan obligatorios (en rojo).'; miss.scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  // Conservar el resto de campos del producto (desarrollo: dev_*, scr_*, angulos, variaciones…)
+  const cur=PRODUCTS.find(x=>x.pid===EDIT_PID)||{};
+  const {pid,_created,_updated,...base}=cur;
+  const data={...base, ...collected};
   msg.className='msg'; msg.textContent='Guardando…';
   try{
     const r=await fetch(API+'/'+encodeURIComponent(EDIT_PID),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});

@@ -153,7 +153,7 @@
   .grip:hover{color:var(--ink)} .grip:active{cursor:grabbing}
   .devblock.dragging{opacity:.45}
   .devblock.drop-target{outline:2px dashed var(--brand);outline-offset:-3px}
-  .blk-sel{width:17px;height:17px;flex:none;accent-color:var(--brand);cursor:pointer;margin-right:2px}
+  .devblock .blk-sel{width:17px;height:17px;min-width:0;flex:none;background:transparent;border:none;border-radius:0;padding:0;margin:0 3px 0 0;accent-color:var(--brand);cursor:pointer}
   .devblock:has(.blk-sel:checked){border-color:var(--brand);background:linear-gradient(160deg,rgba(124,92,255,.08),var(--bg2))}
   .btn:disabled{opacity:.45;cursor:default}
   .trk{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:3px 8px}

@@ -153,6 +153,9 @@
   .grip:hover{color:var(--ink)} .grip:active{cursor:grabbing}
   .devblock.dragging{opacity:.45}
   .devblock.drop-target{outline:2px dashed var(--brand);outline-offset:-3px}
+  .blk-sel{width:17px;height:17px;flex:none;accent-color:var(--brand);cursor:pointer;margin-right:2px}
+  .devblock:has(.blk-sel:checked){border-color:var(--brand);background:linear-gradient(160deg,rgba(124,92,255,.08),var(--bg2))}
+  .btn:disabled{opacity:.45;cursor:default}
   .trk{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
   .trk .trk-l{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.03em}
   .dots{display:inline-flex;gap:4px}
@@ -720,6 +723,7 @@ function devBlockCell(b,i){
   const last=DBLK.length-1;
   return `<div class="devblock" data-id="${b.id}" ondragover="dblkDragOver(event)" ondragleave="dblkDragLeave(event)" ondrop="dblkDrop(event,'${b.id}')">
     <div class="devblock-h">
+      <input type="checkbox" class="blk-sel" ${b._sel?'checked':''} onclick="dblkSel('${b.id}',this.checked)" title="Seleccionar para copiar">
       <span class="grip" draggable="true" title="Arrastrá para mover la sección" ondragstart="dblkDragStart(event,'${b.id}')" ondragend="dblkDragEnd(event)">⠿</span>
       <input class="blk-title" value="${esc(b.label)}" placeholder="Título de la sección" title="Clic para editar el título" oninput="dblkLabel('${b.id}',this.value)">
       <div class="blk-ctrls">
@@ -737,7 +741,7 @@ function devBlockCell(b,i){
   </div>`;
 }
 function devBlocksInner(){ return DBLK.map((b,i)=>devBlockCell(b,i)).join(''); }
-function renderDevBlocks(){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(); applyDevFilter(); }
+function renderDevBlocks(){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(); applyDevFilter(); updateCopySel(); }
 function dblkFind(id){ return DBLK.find(x=>x.id===id); }
 function dblkVal(id,v){ const b=dblkFind(id); if(b) b.value=v; }
 function dblkLabel(id,v){ const b=dblkFind(id); if(b) b.label=v; }
@@ -786,7 +790,12 @@ function dblkAdd(){
   renderDevBlocks(); updateProgress();
   const el=document.querySelector('#dev-blocks .devblock:last-child .blk-title'); if(el){ el.focus(); el.select(); }
 }
-function dblkCopy(id){ const b=dblkFind(id); if(!b) return; const t=b.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function copyText(t){ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function blkCopyText(b){ return (b.label||'').trim()+':\n'+String(b.value||'').trim(); } // incluye el título
+function dblkCopy(id){ const b=dblkFind(id); if(b) copyText(blkCopyText(b)); }
+function dblkSel(id,checked){ const b=dblkFind(id); if(b) b._sel=checked; updateCopySel(); }
+function updateCopySel(){ const n=DBLK.filter(b=>b._sel).length; const el=document.getElementById('copysel-n'); if(el) el.textContent=n; const btn=document.getElementById('copysel-btn'); if(btn) btn.disabled=!n; }
+function copySelected(){ const sel=DBLK.filter(b=>b._sel); if(!sel.length){ toast('Seleccioná al menos una sección'); return; } copyText(sel.map(blkCopyText).join('\n\n')); }
 function devStats(){
   const n=DBLK.length||1;
   const cnt=key=>({ b:DBLK.filter(x=>(x[key]||'')==='').length, c:DBLK.filter(x=>x[key]==='curso').length, a:DBLK.filter(x=>x[key]==='aprob').length });
@@ -903,6 +912,7 @@ function openDevEditor(pid){
         <div class="fltrow">🔎 Filtrar · <span class="fltlbl">Copy</span>`+ddHtml('flt-copy','all',FILTER_OPTS,'applyDevFilter','sm')+` <span class="fltlbl">Diseño</span>`+ddHtml('flt-design','all',FILTER_OPTS,'applyDevFilter','sm')+`</div>
       </div>
       <div class="progactions">
+        <button class="btn ghost" id="copysel-btn" type="button" onclick="copySelected()" disabled>✅ Copiar seleccionadas (<span id="copysel-n">0</span>)</button>
         <button class="btn ghost" type="button" onclick="dblkAdd()">➕ Agregar sección</button>
         <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
       </div>
@@ -942,7 +952,7 @@ function openDevEditor(pid){
   $('#dev-editor').innerHTML=html;
   renderScrVars();
   angInit(p,'scr-ang-list',true);
-  updateProgress(); applyDevFilter();
+  updateProgress(); applyDevFilter(); updateCopySel();
 }
 function copyBlock(key){
   const el=document.getElementById('d_'+key); if(!el) return;
@@ -951,10 +961,8 @@ function copyBlock(key){
   else fallbackCopy(t);
 }
 function copyAllDev(){
-  const parts=DBLK.map(b=>{const v=String(b.value||'').trim();return v?((b.label||'').toUpperCase()+':\n'+v):'';}).filter(Boolean);
-  const t=parts.join('\n\n');
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Todo copiado'),()=>fallbackCopy(t));
-  else fallbackCopy(t);
+  const t=DBLK.map(b=>String(b.value||'').trim()?blkCopyText(b):'').filter(Boolean).join('\n\n');
+  copyText(t);
 }
 function fallbackCopy(t){ const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity=0; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');toast('✓ Copiado');}catch(e){} document.body.removeChild(ta); }
 async function saveDev(){

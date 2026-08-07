@@ -145,9 +145,9 @@
   .mvb:disabled{opacity:.3;cursor:default;border-color:var(--line)}
   .mvb.del{color:var(--red)} .mvb.del:hover{border-color:var(--red);color:var(--red)}
   /* Bloques Página: título editable + estados (copy/diseño) + notas + progreso */
-  .blk-title{flex:1;min-width:120px;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--brand2);font:700 12.5px "Inter";outline:none;padding:2px 0;cursor:text}
-  .blk-title:hover{border-bottom-color:var(--line)}
-  .blk-title:focus{color:var(--ink);border-bottom-color:var(--brand)}
+  .devblock .blk-title{flex:1;min-width:120px;width:auto;background:transparent;border:none;color:var(--brand2);font:700 12.5px "Inter";outline:none;padding:2px 0;cursor:text}
+  .devblock .blk-title:focus{color:var(--brand2)}
+  .devblock .blk-title::placeholder{color:var(--sub)}
   /* Arrastrar bloques */
   .grip{cursor:grab;color:var(--sub);font-size:15px;padding:0 2px;user-select:none;flex:none;line-height:1}
   .grip:hover{color:var(--ink)} .grip:active{cursor:grabbing}
@@ -166,12 +166,20 @@
   .blk-note label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;font-weight:600}
   .blk-note textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 13px "Inter";outline:none;min-height:54px;resize:vertical}
   .blk-note textarea:focus{border-color:var(--brand)}
-  .progwrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
-  .prog{display:flex;align-items:center;gap:9px}
-  .prog-name{font-size:12.5px;font-weight:700;color:var(--sub)}
+  .progwrap{display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:14px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .progcol{display:flex;flex-direction:column;gap:9px;flex:1;min-width:280px}
+  .progactions{display:flex;gap:8px;flex-wrap:wrap}
+  .prog{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .prog-name{font-size:12.5px;font-weight:700;color:var(--sub);min-width:78px}
   .progbar{width:120px;height:8px;background:var(--bg3);border-radius:20px;overflow:hidden}
-  .progbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .2s}
-  .prog b{font-size:13px;color:var(--ink);min-width:38px}
+  .progbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--green),#5eead4);transition:width .2s}
+  .prog b{font-size:13px;color:var(--ink);min-width:40px}
+  .counts{display:inline-flex;gap:9px;margin-left:4px}
+  .counts .cnt{font-size:12px;font-weight:700}
+  .cnt.gris{color:var(--sub)} .cnt.amber{color:var(--amber)} .cnt.green{color:var(--green)}
+  .fltrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:2px}
+  .fltlbl{font-weight:700;color:var(--sub)}
+  .dd.sm{min-width:150px}
   .devblock input,.devblock textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
   .devblock textarea{min-height:84px;resize:vertical;line-height:1.5}
   .devblock input:focus,.devblock textarea:focus{border-color:var(--brand)}
@@ -729,7 +737,7 @@ function devBlockCell(b,i){
   </div>`;
 }
 function devBlocksInner(){ return DBLK.map((b,i)=>devBlockCell(b,i)).join(''); }
-function renderDevBlocks(){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(); }
+function renderDevBlocks(){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(); applyDevFilter(); }
 function dblkFind(id){ return DBLK.find(x=>x.id===id); }
 function dblkVal(id,v){ const b=dblkFind(id); if(b) b.value=v; }
 function dblkLabel(id,v){ const b=dblkFind(id); if(b) b.label=v; }
@@ -740,7 +748,7 @@ function dblkStatus(id,kind,s){
   if(kind==='c') b.cs=s; else b.ds=s;
   const span=document.querySelector('[data-dots="'+kind+'_'+id+'"]');
   if(span) span.querySelectorAll('.dot').forEach(d=>d.classList.toggle('on', d.dataset.s===s));
-  updateProgress();
+  updateProgress(); applyDevFilter();
 }
 function dblkMove(id,dir){
   const i=DBLK.findIndex(x=>x.id===id), j=i+dir;
@@ -779,14 +787,26 @@ function dblkAdd(){
   const el=document.querySelector('#dev-blocks .devblock:last-child .blk-title'); if(el){ el.focus(); el.select(); }
 }
 function dblkCopy(id){ const b=dblkFind(id); if(!b) return; const t=b.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
-function devProgress(){
-  const n=DBLK.length||1, sc=s=> s==='aprob'?1 : s==='curso'?0.5 : 0;
-  return { c:DBLK.reduce((a,b)=>a+sc(b.cs),0)/n*100, d:DBLK.reduce((a,b)=>a+sc(b.ds),0)/n*100 };
+function devStats(){
+  const n=DBLK.length||1;
+  const cnt=key=>({ b:DBLK.filter(x=>(x[key]||'')==='').length, c:DBLK.filter(x=>x[key]==='curso').length, a:DBLK.filter(x=>x[key]==='aprob').length });
+  const cc=cnt('cs'), dc=cnt('ds');
+  return { total:DBLK.length, cc, dc, cPct:cc.a/n*100, dPct:dc.a/n*100 }; // % = verdes (aprobados) / total
 }
 function updateProgress(){
-  const {c,d}=devProgress();
-  const set=(id,bar,val)=>{ const e=document.getElementById(id); if(e) e.textContent=Math.round(val)+'%'; const bb=document.getElementById(bar); if(bb) bb.style.width=val+'%'; };
-  set('prog-copy','prog-copy-bar',c); set('prog-design','prog-design-bar',d);
+  const s=devStats();
+  const setBar=(id,bar,val)=>{ const e=document.getElementById(id); if(e) e.textContent=Math.round(val)+'%'; const bb=document.getElementById(bar); if(bb) bb.style.width=val+'%'; };
+  setBar('prog-copy','prog-copy-bar',s.cPct); setBar('prog-design','prog-design-bar',s.dPct);
+  const setCnt=(id,c)=>{ const e=document.getElementById(id); if(e) e.innerHTML='<span class="cnt gris">⚪ '+c.b+'</span><span class="cnt amber">🟡 '+c.c+'</span><span class="cnt green">🟢 '+c.a+'</span>'; };
+  setCnt('cnt-copy',s.cc); setCnt('cnt-design',s.dc);
+}
+// Filtro por estado (Copy / Diseño)
+const FILTER_OPTS=[{val:'all',label:'Todos'},{val:'borr',label:'⚪ Borrador'},{val:'curso',label:'🟡 En curso'},{val:'aprob',label:'🟢 Aprobado'}];
+function matchStatus(f, st){ if(!f||f==='all') return true; if(f==='borr') return (st||'')===''; return st===f; }
+function applyDevFilter(){
+  const fc=ddVal('flt-copy')||'all', fd=ddVal('flt-design')||'all';
+  DBLK.forEach(b=>{ const el=document.querySelector('#dev-blocks .devblock[data-id="'+b.id+'"]'); if(!el) return;
+    el.style.display=(matchStatus(fc,b.cs)&&matchStatus(fd,b.ds))?'':'none'; });
 }
 function devBadge(p){
   const s=(p&&p.dev_estado)||'';
@@ -877,9 +897,12 @@ function openDevEditor(pid){
   </div>
   <div id="prodpanel-pagina">
     <div class="progwrap">
-      <div class="prog"><span class="prog-name">📝 Copy</span><div class="progbar"><i id="prog-copy-bar"></i></div><b id="prog-copy">0%</b></div>
-      <div class="prog"><span class="prog-name">🎨 Diseño</span><div class="progbar"><i id="prog-design-bar"></i></div><b id="prog-design">0%</b></div>
-      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <div class="progcol">
+        <div class="prog"><span class="prog-name">📝 Copy</span><div class="progbar"><i id="prog-copy-bar"></i></div><b id="prog-copy">0%</b><span class="counts" id="cnt-copy"></span></div>
+        <div class="prog"><span class="prog-name">🎨 Diseño</span><div class="progbar"><i id="prog-design-bar"></i></div><b id="prog-design">0%</b><span class="counts" id="cnt-design"></span></div>
+        <div class="fltrow">🔎 Filtrar · <span class="fltlbl">Copy</span>`+ddHtml('flt-copy','all',FILTER_OPTS,'applyDevFilter','sm')+` <span class="fltlbl">Diseño</span>`+ddHtml('flt-design','all',FILTER_OPTS,'applyDevFilter','sm')+`</div>
+      </div>
+      <div class="progactions">
         <button class="btn ghost" type="button" onclick="dblkAdd()">➕ Agregar sección</button>
         <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
       </div>
@@ -919,7 +942,7 @@ function openDevEditor(pid){
   $('#dev-editor').innerHTML=html;
   renderScrVars();
   angInit(p,'scr-ang-list',true);
-  updateProgress();
+  updateProgress(); applyDevFilter();
 }
 function copyBlock(key){
   const el=document.getElementById('d_'+key); if(!el) return;

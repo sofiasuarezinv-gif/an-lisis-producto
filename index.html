@@ -145,8 +145,14 @@
   .mvb:disabled{opacity:.3;cursor:default;border-color:var(--line)}
   .mvb.del{color:var(--red)} .mvb.del:hover{border-color:var(--red);color:var(--red)}
   /* Bloques Página: título editable + estados (copy/diseño) + notas + progreso */
-  .blk-title{flex:1;min-width:120px;background:transparent;border:none;color:var(--brand2);font:700 12.5px "Inter";outline:none;padding:2px 0}
-  .blk-title:focus{color:var(--ink)}
+  .blk-title{flex:1;min-width:120px;background:transparent;border:none;border-bottom:1px solid transparent;color:var(--brand2);font:700 12.5px "Inter";outline:none;padding:2px 0;cursor:text}
+  .blk-title:hover{border-bottom-color:var(--line)}
+  .blk-title:focus{color:var(--ink);border-bottom-color:var(--brand)}
+  /* Arrastrar bloques */
+  .grip{cursor:grab;color:var(--sub);font-size:15px;padding:0 2px;user-select:none;flex:none;line-height:1}
+  .grip:hover{color:var(--ink)} .grip:active{cursor:grabbing}
+  .devblock.dragging{opacity:.45}
+  .devblock.drop-target{outline:2px dashed var(--brand);outline-offset:-3px}
   .trk{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
   .trk .trk-l{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.03em}
   .dots{display:inline-flex;gap:4px}
@@ -704,9 +710,10 @@ function devBlockCell(b,i){
     ? `<input id="dv_${b.id}" oninput="dblkVal('${b.id}',this.value)" value="${v}">`
     : `<textarea id="dv_${b.id}" oninput="dblkVal('${b.id}',this.value)">${v}</textarea>`;
   const last=DBLK.length-1;
-  return `<div class="devblock" data-id="${b.id}">
+  return `<div class="devblock" data-id="${b.id}" ondragover="dblkDragOver(event)" ondragleave="dblkDragLeave(event)" ondrop="dblkDrop(event,'${b.id}')">
     <div class="devblock-h">
-      <input class="blk-title" value="${esc(b.label)}" placeholder="Título de la sección" oninput="dblkLabel('${b.id}',this.value)">
+      <span class="grip" draggable="true" title="Arrastrá para mover la sección" ondragstart="dblkDragStart(event,'${b.id}')" ondragend="dblkDragEnd(event)">⠿</span>
+      <input class="blk-title" value="${esc(b.label)}" placeholder="Título de la sección" title="Clic para editar el título" oninput="dblkLabel('${b.id}',this.value)">
       <div class="blk-ctrls">
         <span class="trk"><span class="trk-l">Copy</span>${statusDots('c',b.id,b.cs)}<button class="noteb ${b.cn?'has':''}" id="nb_c_${b.id}" type="button" title="Nota copy" onclick="dblkNote('${b.id}','c')">🗒️</button></span>
         <span class="trk"><span class="trk-l">Diseño</span>${statusDots('d',b.id,b.ds)}<button class="noteb ${b.dn?'has':''}" id="nb_d_${b.id}" type="button" title="Nota diseño" onclick="dblkNote('${b.id}','d')">🗒️</button></span>
@@ -741,6 +748,25 @@ function dblkMove(id,dir){
   [DBLK[i],DBLK[j]]=[DBLK[j],DBLK[i]];
   renderDevBlocks();
 }
+// Arrastrar para reordenar
+let DRAG_ID=null;
+function dblkDragStart(e,id){ DRAG_ID=id; e.dataTransfer.effectAllowed='move'; try{e.dataTransfer.setData('text/plain',id);}catch(_){}
+  const blk=document.querySelector('#dev-blocks .devblock[data-id="'+id+'"]'); if(blk) blk.classList.add('dragging'); }
+function dblkDragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(e.currentTarget.dataset.id!==DRAG_ID) e.currentTarget.classList.add('drop-target'); }
+function dblkDragLeave(e){ e.currentTarget.classList.remove('drop-target'); }
+function dblkDrop(e,id){
+  e.preventDefault(); e.currentTarget.classList.remove('drop-target');
+  if(!DRAG_ID||DRAG_ID===id) return;
+  const rect=e.currentTarget.getBoundingClientRect();
+  const after=(e.clientY-rect.top)>rect.height/2;
+  const from=DBLK.findIndex(x=>x.id===DRAG_ID); if(from<0) return;
+  const [item]=DBLK.splice(from,1);
+  let to=DBLK.findIndex(x=>x.id===id); if(to<0){ DBLK.splice(from,0,item); return; }
+  if(after) to+=1;
+  DBLK.splice(to,0,item);
+  renderDevBlocks();
+}
+function dblkDragEnd(){ DRAG_ID=null; document.querySelectorAll('#dev-blocks .devblock').forEach(b=>b.classList.remove('dragging','drop-target')); }
 function dblkDel(id){
   const b=dblkFind(id); if(!b) return;
   if(!confirm('¿Eliminar la sección "'+(b.label||'sin título')+'"?')) return;

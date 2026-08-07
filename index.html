@@ -139,6 +139,10 @@
   .devblock-h span{font-size:12.5px;font-weight:700;color:var(--brand2);letter-spacing:.01em}
   .devblock .cpy{background:var(--bg2);border:1px solid var(--line);color:var(--sub);min-width:36px;height:30px;border-radius:8px;cursor:pointer;font-size:14px}
   .devblock .cpy:hover{color:var(--ink);border-color:var(--brand)}
+  .blk-ctrls{display:flex;align-items:center;gap:6px}
+  .mvb{background:var(--bg2);border:1px solid var(--line);color:var(--sub);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
+  .mvb:hover{color:var(--ink);border-color:var(--brand)}
+  .mvb:disabled{opacity:.3;cursor:default;border-color:var(--line)}
   .devblock input,.devblock textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
   .devblock textarea{min-height:84px;resize:vertical;line-height:1.5}
   .devblock input:focus,.devblock textarea:focus{border-color:var(--brand)}
@@ -641,6 +645,36 @@ const DEV_BLOCKS = [
   {key:'dev_comentarios', label:'Comentarios', type:'textarea'},
 ];
 let DEV_CUR=null;
+let DEV_ORDER=[];   // orden actual de los bloques de la Página (por key)
+function orderedDevKeys(p){
+  const saved = Array.isArray(p&&p.dev_order) ? p.dev_order : [];
+  const all = DEV_BLOCKS.map(b=>b.key);
+  const ordered = saved.filter(k=>all.includes(k));
+  all.forEach(k=>{ if(!ordered.includes(k)) ordered.push(k); }); // bloques nuevos van al final
+  return ordered;
+}
+function devBlockCell(key, value){
+  const b=DEV_BLOCKS.find(x=>x.key===key); if(!b) return '';
+  const v=esc(value==null?'':value);
+  const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
+  const i = DEV_ORDER.indexOf(key), last = DEV_ORDER.length-1;
+  return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span>
+    <div class="blk-ctrls">
+      <button class="mvb" type="button" title="Subir" onclick="devMove('${b.key}',-1)" ${i<=0?'disabled':''}>↑</button>
+      <button class="mvb" type="button" title="Bajar" onclick="devMove('${b.key}',1)" ${i>=last?'disabled':''}>↓</button>
+      <button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button>
+    </div></div>${inp}</div>`;
+}
+function devBlocksInner(getVal){ return DEV_ORDER.map(k=>devBlockCell(k, getVal(k))).join(''); }
+function collectDevVals(){ const o={}; DEV_BLOCKS.forEach(b=>{ const el=document.getElementById('d_'+b.key); if(el) o[b.key]=el.value; }); return o; }
+function renderDevBlocks(vals){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(k=>vals?vals[k]:''); }
+function devMove(key, dir){
+  const vals=collectDevVals();
+  const i=DEV_ORDER.indexOf(key), j=i+dir;
+  if(i<0 || j<0 || j>=DEV_ORDER.length) return;
+  [DEV_ORDER[i],DEV_ORDER[j]]=[DEV_ORDER[j],DEV_ORDER[i]];
+  renderDevBlocks(vals);
+}
 function devBadge(p){
   const s=(p&&p.dev_estado)||'';
   const map={'':['var(--sub)','⚪'],'en_curso':['var(--amber)','🟡'],'completado':['var(--green)','✅']};
@@ -715,6 +749,7 @@ function openDevEditor(pid){
   };
   SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
   SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
+  DEV_ORDER = orderedDevKeys(p);
   let html=`<div class="devbar">
     <button class="btn ghost" type="button" onclick="devBackToFolders()" style="padding:8px 12px">← Productos</button>
     <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="dev-badge">${devBadge(p)}</span></div>
@@ -729,11 +764,7 @@ function openDevEditor(pid){
   </div>
   <div id="prodpanel-pagina">
     <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button></div>
-    <div class="devpanel"><div class="devblocks">`+DEV_BLOCKS.map(b=>{
-      const v=esc(val(b.key));
-      const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
-      return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span><button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button></div>${inp}</div>`;
-    }).join('')+`</div></div>
+    <div class="devpanel"><div class="devblocks" id="dev-blocks">`+devBlocksInner(k=>val(k))+`</div></div>
   </div>
   <div id="prodpanel-anuncios" style="display:none">
     <div class="subtabs">
@@ -789,6 +820,7 @@ async function saveDev(){
   // Página (landing / desarrollo)
   DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
   data.dev_estado = ddVal('d_dev_estado');
+  data.dev_order = DEV_ORDER.slice();
   data.angulos = angCollect();
   // Anuncios (scripts + variaciones)
   SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });

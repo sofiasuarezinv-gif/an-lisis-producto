@@ -143,6 +143,29 @@
   .mvb{background:var(--bg2);border:1px solid var(--line);color:var(--sub);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center}
   .mvb:hover{color:var(--ink);border-color:var(--brand)}
   .mvb:disabled{opacity:.3;cursor:default;border-color:var(--line)}
+  .mvb.del{color:var(--red)} .mvb.del:hover{border-color:var(--red);color:var(--red)}
+  /* Bloques Página: título editable + estados (copy/diseño) + notas + progreso */
+  .blk-title{flex:1;min-width:120px;background:transparent;border:none;color:var(--brand2);font:700 12.5px "Inter";outline:none;padding:2px 0}
+  .blk-title:focus{color:var(--ink)}
+  .trk{display:inline-flex;align-items:center;gap:5px;background:var(--bg2);border:1px solid var(--line);border-radius:20px;padding:3px 8px}
+  .trk .trk-l{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.03em}
+  .dots{display:inline-flex;gap:4px}
+  .dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--dc);background:transparent;cursor:pointer;padding:0;opacity:.4;transition:.12s}
+  .dot:hover{opacity:.85}
+  .dot.on{background:var(--dc);opacity:1;box-shadow:0 0 0 2px rgba(255,255,255,.08)}
+  .noteb{background:var(--bg2);border:1px solid var(--line);color:var(--sub);width:26px;height:26px;border-radius:7px;cursor:pointer;font-size:12px;line-height:1}
+  .noteb:hover{color:var(--ink);border-color:var(--brand)}
+  .noteb.has{border-color:var(--amber);color:var(--amber)}
+  .blk-note{margin-top:8px}
+  .blk-note label{display:block;font-size:11px;color:var(--sub);margin-bottom:4px;font-weight:600}
+  .blk-note textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 13px "Inter";outline:none;min-height:54px;resize:vertical}
+  .blk-note textarea:focus{border-color:var(--brand)}
+  .progwrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:14px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .prog{display:flex;align-items:center;gap:9px}
+  .prog-name{font-size:12.5px;font-weight:700;color:var(--sub)}
+  .progbar{width:120px;height:8px;background:var(--bg3);border-radius:20px;overflow:hidden}
+  .progbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--brand),var(--brand2));transition:width .2s}
+  .prog b{font-size:13px;color:var(--ink);min-width:38px}
   .devblock input,.devblock textarea{width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 14px "Inter";outline:none}
   .devblock textarea{min-height:84px;resize:vertical;line-height:1.5}
   .devblock input:focus,.devblock textarea:focus{border-color:var(--brand)}
@@ -645,35 +668,99 @@ const DEV_BLOCKS = [
   {key:'dev_comentarios', label:'Comentarios', type:'textarea'},
 ];
 let DEV_CUR=null;
-let DEV_ORDER=[];   // orden actual de los bloques de la Página (por key)
+let DBLK=[];   // bloques de la Página en edición: [{id,label,type,value,cs,ds,cn,dn}]
+function newBlkId(){ return 'b'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36); }
 function orderedDevKeys(p){
   const saved = Array.isArray(p&&p.dev_order) ? p.dev_order : [];
   const all = DEV_BLOCKS.map(b=>b.key);
   const ordered = saved.filter(k=>all.includes(k));
-  all.forEach(k=>{ if(!ordered.includes(k)) ordered.push(k); }); // bloques nuevos van al final
+  all.forEach(k=>{ if(!ordered.includes(k)) ordered.push(k); });
   return ordered;
 }
-function devBlockCell(key, value){
-  const b=DEV_BLOCKS.find(x=>x.key===key); if(!b) return '';
-  const v=esc(value==null?'':value);
-  const inp = b.type==='text' ? `<input id="d_${b.key}" value="${v}">` : `<textarea id="d_${b.key}">${v}</textarea>`;
-  const i = DEV_ORDER.indexOf(key), last = DEV_ORDER.length-1;
-  return `<div class="devblock"><div class="devblock-h"><span>${esc(b.label)}</span>
-    <div class="blk-ctrls">
-      <button class="mvb" type="button" title="Subir" onclick="devMove('${b.key}',-1)" ${i<=0?'disabled':''}>↑</button>
-      <button class="mvb" type="button" title="Bajar" onclick="devMove('${b.key}',1)" ${i>=last?'disabled':''}>↓</button>
-      <button class="cpy" type="button" title="Copiar este bloque" onclick="copyBlock('${b.key}')">📋</button>
-    </div></div>${inp}</div>`;
+function initDevBlocks(p){
+  if(Array.isArray(p.dev_blocks) && p.dev_blocks.length){
+    DBLK = p.dev_blocks.map(b=>({ id:b.id||newBlkId(), label:b.label||'', type:b.type==='text'?'text':'textarea',
+      value:b.value||'', cs:b.cs||'', ds:b.ds||'', cn:b.cn||'', dn:b.dn||'' }));
+  } else {
+    // migrar del esquema viejo (DEV_BLOCKS + dev_order + dev_<key> + dev_meta)
+    DBLK = orderedDevKeys(p).map(key=>{
+      const def = DEV_BLOCKS.find(x=>x.key===key) || {label:key, type:'textarea'};
+      let value = p[key]||'';
+      if(key==='dev_nombre') value = p.dev_nombre||p.nombre||'';
+      if(key==='dev_precio_venta') value = p.dev_precio_venta||p.precio_venta||'';
+      const m=(p.dev_meta&&p.dev_meta[key])||{};
+      return { id:key, label:def.label, type:def.type==='text'?'text':'textarea', value, cs:m.cs||'', ds:m.ds||'', cn:m.cn||'', dn:m.dn||'' };
+    });
+  }
 }
-function devBlocksInner(getVal){ return DEV_ORDER.map(k=>devBlockCell(k, getVal(k))).join(''); }
-function collectDevVals(){ const o={}; DEV_BLOCKS.forEach(b=>{ const el=document.getElementById('d_'+b.key); if(el) o[b.key]=el.value; }); return o; }
-function renderDevBlocks(vals){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(k=>vals?vals[k]:''); }
-function devMove(key, dir){
-  const vals=collectDevVals();
-  const i=DEV_ORDER.indexOf(key), j=i+dir;
-  if(i<0 || j<0 || j>=DEV_ORDER.length) return;
-  [DEV_ORDER[i],DEV_ORDER[j]]=[DEV_ORDER[j],DEV_ORDER[i]];
-  renderDevBlocks(vals);
+const DEV_STATES=[ {s:'',color:'var(--sub)',label:'Borrador'}, {s:'curso',color:'var(--amber)',label:'En curso'}, {s:'aprob',color:'var(--green)',label:'Aprobado'} ];
+function statusDots(kind, id, val){
+  const dots = DEV_STATES.map(st=>`<button class="dot ${val===st.s?'on':''}" data-s="${st.s}" style="--dc:${st.color}" title="${st.label}" type="button" onclick="dblkStatus('${id}','${kind}','${st.s}')"></button>`).join('');
+  return `<span class="dots" data-dots="${kind}_${id}">${dots}</span>`;
+}
+function devBlockCell(b,i){
+  const v=esc(b.value==null?'':b.value);
+  const inp = b.type==='text'
+    ? `<input id="dv_${b.id}" oninput="dblkVal('${b.id}',this.value)" value="${v}">`
+    : `<textarea id="dv_${b.id}" oninput="dblkVal('${b.id}',this.value)">${v}</textarea>`;
+  const last=DBLK.length-1;
+  return `<div class="devblock" data-id="${b.id}">
+    <div class="devblock-h">
+      <input class="blk-title" value="${esc(b.label)}" placeholder="Título de la sección" oninput="dblkLabel('${b.id}',this.value)">
+      <div class="blk-ctrls">
+        <span class="trk"><span class="trk-l">Copy</span>${statusDots('c',b.id,b.cs)}<button class="noteb ${b.cn?'has':''}" id="nb_c_${b.id}" type="button" title="Nota copy" onclick="dblkNote('${b.id}','c')">🗒️</button></span>
+        <span class="trk"><span class="trk-l">Diseño</span>${statusDots('d',b.id,b.ds)}<button class="noteb ${b.dn?'has':''}" id="nb_d_${b.id}" type="button" title="Nota diseño" onclick="dblkNote('${b.id}','d')">🗒️</button></span>
+        <button class="mvb" type="button" title="Subir" onclick="dblkMove('${b.id}',-1)" ${i<=0?'disabled':''}>↑</button>
+        <button class="mvb" type="button" title="Bajar" onclick="dblkMove('${b.id}',1)" ${i>=last?'disabled':''}>↓</button>
+        <button class="cpy" type="button" title="Copiar" onclick="dblkCopy('${b.id}')">📋</button>
+        <button class="mvb del" type="button" title="Eliminar sección" onclick="dblkDel('${b.id}')">✕</button>
+      </div>
+    </div>
+    ${inp}
+    <div class="blk-note" id="note_c_${b.id}" style="display:${b.cn?'block':'none'}"><label>📝 Nota copy</label><textarea placeholder="Nota del copy…" oninput="dblkNoteVal('${b.id}','c',this.value)">${esc(b.cn)}</textarea></div>
+    <div class="blk-note" id="note_d_${b.id}" style="display:${b.dn?'block':'none'}"><label>🎨 Nota diseño</label><textarea placeholder="Nota del diseño…" oninput="dblkNoteVal('${b.id}','d',this.value)">${esc(b.dn)}</textarea></div>
+  </div>`;
+}
+function devBlocksInner(){ return DBLK.map((b,i)=>devBlockCell(b,i)).join(''); }
+function renderDevBlocks(){ const box=document.getElementById('dev-blocks'); if(box) box.innerHTML=devBlocksInner(); }
+function dblkFind(id){ return DBLK.find(x=>x.id===id); }
+function dblkVal(id,v){ const b=dblkFind(id); if(b) b.value=v; }
+function dblkLabel(id,v){ const b=dblkFind(id); if(b) b.label=v; }
+function dblkNoteVal(id,kind,v){ const b=dblkFind(id); if(!b) return; if(kind==='c') b.cn=v; else b.dn=v; const nb=document.getElementById('nb_'+kind+'_'+id); if(nb) nb.classList.toggle('has',!!v); }
+function dblkNote(id,kind){ const el=document.getElementById('note_'+kind+'_'+id); if(el) el.style.display = el.style.display==='none'?'block':'none'; }
+function dblkStatus(id,kind,s){
+  const b=dblkFind(id); if(!b) return;
+  if(kind==='c') b.cs=s; else b.ds=s;
+  const span=document.querySelector('[data-dots="'+kind+'_'+id+'"]');
+  if(span) span.querySelectorAll('.dot').forEach(d=>d.classList.toggle('on', d.dataset.s===s));
+  updateProgress();
+}
+function dblkMove(id,dir){
+  const i=DBLK.findIndex(x=>x.id===id), j=i+dir;
+  if(i<0||j<0||j>=DBLK.length) return;
+  [DBLK[i],DBLK[j]]=[DBLK[j],DBLK[i]];
+  renderDevBlocks();
+}
+function dblkDel(id){
+  const b=dblkFind(id); if(!b) return;
+  if(!confirm('¿Eliminar la sección "'+(b.label||'sin título')+'"?')) return;
+  DBLK = DBLK.filter(x=>x.id!==id);
+  renderDevBlocks(); updateProgress();
+}
+function dblkAdd(){
+  DBLK.push({ id:newBlkId(), label:'Nueva sección', type:'textarea', value:'', cs:'', ds:'', cn:'', dn:'' });
+  renderDevBlocks(); updateProgress();
+  const el=document.querySelector('#dev-blocks .devblock:last-child .blk-title'); if(el){ el.focus(); el.select(); }
+}
+function dblkCopy(id){ const b=dblkFind(id); if(!b) return; const t=b.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function devProgress(){
+  const n=DBLK.length||1, sc=s=> s==='aprob'?1 : s==='curso'?0.5 : 0;
+  return { c:DBLK.reduce((a,b)=>a+sc(b.cs),0)/n*100, d:DBLK.reduce((a,b)=>a+sc(b.ds),0)/n*100 };
+}
+function updateProgress(){
+  const {c,d}=devProgress();
+  const set=(id,bar,val)=>{ const e=document.getElementById(id); if(e) e.textContent=Math.round(val)+'%'; const bb=document.getElementById(bar); if(bb) bb.style.width=val+'%'; };
+  set('prog-copy','prog-copy-bar',c); set('prog-design','prog-design-bar',d);
 }
 function devBadge(p){
   const s=(p&&p.dev_estado)||'';
@@ -749,7 +836,7 @@ function openDevEditor(pid){
   };
   SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
   SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
-  DEV_ORDER = orderedDevKeys(p);
+  initDevBlocks(p);
   let html=`<div class="devbar">
     <button class="btn ghost" type="button" onclick="devBackToFolders()" style="padding:8px 12px">← Productos</button>
     <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="dev-badge">${devBadge(p)}</span></div>
@@ -763,8 +850,15 @@ function openDevEditor(pid){
     <div class="subtab" id="prod-anuncios" onclick="prodPanel('anuncios')">📣 Anuncios</div>
   </div>
   <div id="prodpanel-pagina">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px"><button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button></div>
-    <div class="devpanel"><div class="devblocks" id="dev-blocks">`+devBlocksInner(k=>val(k))+`</div></div>
+    <div class="progwrap">
+      <div class="prog"><span class="prog-name">📝 Copy</span><div class="progbar"><i id="prog-copy-bar"></i></div><b id="prog-copy">0%</b></div>
+      <div class="prog"><span class="prog-name">🎨 Diseño</span><div class="progbar"><i id="prog-design-bar"></i></div><b id="prog-design">0%</b></div>
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn ghost" type="button" onclick="dblkAdd()">➕ Agregar sección</button>
+        <button class="btn ghost" type="button" onclick="copyAllDev()">📋 Copiar todo</button>
+      </div>
+    </div>
+    <div class="devpanel"><div class="devblocks" id="dev-blocks">`+devBlocksInner()+`</div></div>
   </div>
   <div id="prodpanel-anuncios" style="display:none">
     <div class="subtabs">
@@ -799,6 +893,7 @@ function openDevEditor(pid){
   $('#dev-editor').innerHTML=html;
   renderScrVars();
   angInit(p,'scr-ang-list',true);
+  updateProgress();
 }
 function copyBlock(key){
   const el=document.getElementById('d_'+key); if(!el) return;
@@ -807,7 +902,7 @@ function copyBlock(key){
   else fallbackCopy(t);
 }
 function copyAllDev(){
-  const parts=DEV_BLOCKS.map(b=>{const el=document.getElementById('d_'+b.key);const v=el?el.value.trim():'';return v?(b.label.toUpperCase()+':\n'+v):'';}).filter(Boolean);
+  const parts=DBLK.map(b=>{const v=String(b.value||'').trim();return v?((b.label||'').toUpperCase()+':\n'+v):'';}).filter(Boolean);
   const t=parts.join('\n\n');
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Todo copiado'),()=>fallbackCopy(t));
   else fallbackCopy(t);
@@ -817,10 +912,10 @@ async function saveDev(){
   if(!DEV_CUR) return;
   const p=PRODUCTS.find(x=>x.pid===DEV_CUR); if(!p) return;
   const {pid,_created,_updated,...data}=p;
-  // Página (landing / desarrollo)
-  DEV_BLOCKS.forEach(b=>{const el=document.getElementById('d_'+b.key);if(el)data[b.key]=el.value.trim();});
+  // Página (landing): bloques dinámicos con estado copy/diseño y notas
+  data.dev_blocks = DBLK.map(b=>({ id:b.id, label:b.label, type:b.type, value:String(b.value||''), cs:b.cs||'', ds:b.ds||'', cn:b.cn||'', dn:b.dn||'' }));
+  DBLK.forEach(b=>{ if(/^dev_/.test(b.id)) data[b.id]=String(b.value||''); }); // compat campos estándar
   data.dev_estado = ddVal('d_dev_estado');
-  data.dev_order = DEV_ORDER.slice();
   data.angulos = angCollect();
   // Anuncios (scripts + variaciones)
   SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });

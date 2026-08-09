@@ -119,23 +119,55 @@
   .devblocks{display:grid;grid-template-columns:1fr;gap:12px}
   .devpanel{background:var(--bg1);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
   .ttbl{display:flex;flex-direction:column;gap:8px}
-  .ttrow{display:grid;grid-template-columns:1fr 130px 168px 40px;gap:8px;align-items:center}
+  .ttrow{display:grid;grid-template-columns:36px 1fr 130px 168px 40px;gap:8px;align-items:center}
   .ttrow.tthead{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);font-weight:700;padding:0 2px}
   .ttrow input{width:100%;background:var(--bg3,var(--bg2));border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:8px 10px;font:500 13.5px "Inter",system-ui;outline:none}
   .ttrow input:focus{border-color:var(--brand)}
+  .ttrow.ok input{opacity:.55;text-decoration:line-through}
+  .ttchk{width:26px;height:26px;border-radius:7px;border:2px solid var(--line);background:transparent;color:#fff;cursor:pointer;font-size:14px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;line-height:1}
+  .ttchk:hover{border-color:var(--brand)}
+  .ttchk.on{background:var(--green,#30a46c);border-color:var(--green,#30a46c)}
   .ttchrono{display:flex;align-items:center;gap:6px}
   .ttchrono .ttime{font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;min-width:66px;color:var(--ink)}
   .ttchrono .ttime.run{color:var(--brand)}
   .ttchrono .ttime.done{color:var(--red,#e5484d)}
-  .tttotal{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 18px;background:var(--bg2);border:1px solid var(--brand);border-radius:14px}
-  .tttotal>span{font-size:12.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
-  .tttotal>b{font-size:28px;font-weight:800;color:var(--brand);font-variant-numeric:tabular-nums}
-  @media(max-width:620px){.tttotal{padding:12px 14px}.tttotal>b{font-size:22px}}
   .ttbtn{background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:13px;flex:none;display:inline-flex;align-items:center;justify-content:center}
   .ttbtn:hover{border-color:var(--brand)}
   .ttbtn.run{background:var(--amber,#f5a623);border-color:var(--amber,#f5a623);color:#3d2a05}
   .ttbtn.del{color:var(--red,#e5484d)}
-  @media(max-width:620px){.ttrow{grid-template-columns:1fr 84px 148px 34px}.ttrow input{padding:7px 8px;font-size:12.5px}.ttchrono .ttime{min-width:58px;font-size:13px}.ttbtn{width:28px;height:28px}}
+  /* Meta + gráfica */
+  .ttmeta{margin-top:18px;padding:16px 18px;background:var(--bg2);border:1px solid var(--brand);border-radius:14px}
+  .ttmeta-head,.tteval-head{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:10px}
+  .ttmeta-in{width:100%;max-width:280px;background:var(--bg3,var(--bg1));border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:9px 12px;font:600 14px "Inter",system-ui;outline:none;margin-bottom:14px}
+  .ttmeta-in:focus{border-color:var(--brand)}
+  .ttstats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .ttstat{flex:1;min-width:120px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:10px 14px;display:flex;flex-direction:column;gap:3px}
+  .ttstat>span{font-size:11px;color:var(--sub);font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+  .ttstat>b{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .ttstat.meta>b{color:var(--sub)} .ttstat.est>b{color:var(--brand)} .ttstat.real>b{color:var(--green,#30a46c)}
+  .ttchart{display:flex;flex-direction:column;gap:9px}
+  .ttbar{display:grid;grid-template-columns:100px 1fr 96px;gap:10px;align-items:center}
+  .ttbar-l{font-size:12.5px;font-weight:700;color:var(--ink)}
+  .ttbar-t{height:16px;background:var(--bg3,var(--bg1));border-radius:8px;overflow:hidden}
+  .ttbar-t>i{display:block;height:100%;border-radius:8px;min-width:2px;transition:width .35s ease}
+  .ttbar-t>i.meta{background:var(--sub)} .ttbar-t>i.est{background:var(--brand)} .ttbar-t>i.real{background:var(--green,#30a46c)} .ttbar-t>i.over{background:var(--red,#e5484d)}
+  .ttbar-v{font-size:12.5px;font-weight:700;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums}
+  /* Evaluación */
+  .tteval{margin-top:18px;padding:16px 18px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
+  .ttrow.evrow{grid-template-columns:1fr 110px 130px 150px}
+  .ttrow.evrow.evtot{border-top:1px solid var(--line);padding-top:10px;margin-top:2px;font-weight:700}
+  .evname{font-size:13.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .evest{font-size:13px;color:var(--sub);font-variant-numeric:tabular-nums}
+  .evdiff{font-size:12.5px;font-weight:700}
+  .evdiff.good{color:var(--green,#30a46c)} .evdiff.bad{color:var(--red,#e5484d)}
+  @media(max-width:640px){
+    .ttrow{grid-template-columns:30px 1fr 82px 146px 32px}
+    .ttrow input{padding:7px 8px;font-size:12.5px}
+    .ttchrono .ttime{min-width:56px;font-size:13px} .ttbtn{width:28px;height:28px} .ttchk{width:24px;height:24px}
+    .ttbar{grid-template-columns:74px 1fr 74px;gap:7px} .ttbar-l,.ttbar-v{font-size:11px}
+    .ttstat>b{font-size:18px}
+    .ttrow.evrow{grid-template-columns:1fr 68px 88px 92px} .evname{font-size:12px} .evdiff{font-size:11px}
+  }
   .devblock{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   /* Ángulos de venta (checklist) */
   .ang-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -677,7 +709,7 @@ function prodPanel(which){
 }
 
 // ─── Tiempo de desarrollo (tareas + temporizador con cuenta regresiva) ───
-let TIME={pagina:[],anuncios:[]}, TIME_TIMERS={};
+let TIME={pagina:[],anuncios:[],meta:{pagina:'',anuncios:''}}, TIME_TIMERS={};
 function fmtHMS(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60,z=n=>(n<10?'0':'')+n;return z(h)+':'+z(m)+':'+z(ss);}
 // interpreta "1 hora y 30 min", "45 min", "1 hora", "1h 20m", "90" (min) → segundos
 function parseDur(str){
@@ -693,8 +725,9 @@ function tiempoBeep(){ try{ var C=window.AudioContext||window.webkitAudioContext
 function stopAllTimers(){ Object.keys(TIME_TIMERS).forEach(k=>clearInterval(TIME_TIMERS[k])); TIME_TIMERS={}; }
 function stopTabTimers(tab){ Object.keys(TIME_TIMERS).forEach(k=>{ if(k.indexOf(tab+'_')===0){clearInterval(TIME_TIMERS[k]);delete TIME_TIMERS[k];} }); }
 function initTiempo(p){
-  var norm=a=>Array.isArray(a)?a.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'', left:(r.left!=null? Math.max(0,+r.left) : parseDur(r.tiempo)) })):[];
+  var norm=a=>Array.isArray(a)?a.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',real:r.real||'',done:!!r.done, left:(r.left!=null? Math.max(0,+r.left) : parseDur(r.tiempo)) })):[];
   TIME.pagina=norm(p.tiempo_pagina); TIME.anuncios=norm(p.tiempo_anuncios);
+  TIME.meta={pagina:p.meta_pagina||'', anuncios:p.meta_anuncios||''};
 }
 function tiempoSub(tab){
   $('#tpanel-pagina').style.display=tab==='pagina'?'':'none';
@@ -704,11 +737,28 @@ function tiempoSub(tab){
 }
 function renderTiempo(tab){
   var box=document.getElementById('ttab-'+tab); if(!box) return;
+  box.innerHTML=`
+    <div id="tttasks-${tab}"></div>
+    <div class="ttmeta">
+      <div class="ttmeta-head">🎯 Mi objetivo — ¿cuánto debería demorarme en total?</div>
+      <input class="ttmeta-in" id="ttmeta-${tab}" value="${esc(TIME.meta[tab]||'')}" placeholder="ej: 3 horas" oninput="metaSet('${tab}',this.value)">
+      <div class="ttstats" id="ttstats-${tab}"></div>
+      <div class="ttchart" id="ttchart-${tab}"></div>
+    </div>
+    <div class="tteval">
+      <div class="tteval-head">📊 Evaluación · objetivo vs. lo que realmente me demoré</div>
+      <div id="tteval-${tab}"></div>
+    </div>`;
+  renderTasks(tab); renderChart(tab); renderEval(tab);
+}
+function renderTasks(tab){
+  var box=document.getElementById('tttasks-'+tab); if(!box) return;
   var rows=TIME[tab];
   var body = rows.length ? rows.map(function(r,i){
     var key=tab+'_'+i, run=!!TIME_TIMERS[key];
     var left = r.left!=null? r.left : parseDur(r.tiempo), done = left<=0 && parseDur(r.tiempo)>0;
-    return `<div class="ttrow">
+    return `<div class="ttrow ${r.done?'ok':''}" id="ttrow_${key}">
+      <div><button class="ttchk ${r.done?'on':''}" type="button" title="Marcar completada" onclick="tiempoDone('${tab}',${i})">${r.done?'✓':''}</button></div>
       <div><input value="${esc(r.tarea)}" placeholder="Describe la tarea…" oninput="tiempoSet('${tab}',${i},'tarea',this.value)"></div>
       <div><input value="${esc(r.tiempo)}" placeholder="ej: 45 min" oninput="tiempoDur('${tab}',${i},this.value)"></div>
       <div class="ttchrono"><span class="ttime ${done?'done':''} ${run?'run':''}" id="ttime_${key}">${fmtHMS(left)}</span>
@@ -717,19 +767,68 @@ function renderTiempo(tab){
       <div><button class="ttbtn del" type="button" title="Eliminar" onclick="tiempoDel('${tab}',${i})">✕</button></div>
     </div>`;
   }).join('') : `<div class="empty" style="padding:24px">Sin tareas todavía. Agregá la primera con "➕ Agregar tarea".</div>`;
-  var total = rows.reduce((s,r)=>s+parseDur(r.tiempo),0);
-  box.innerHTML=`<div class="ttbl"><div class="ttrow tthead"><div>Tarea</div><div>Tiempo que me demoro</div><div>Temporizador</div><div></div></div>${body}</div>
-    <div class="tttotal"><span>⏳ Tiempo total estimado</span><b id="tttotal-${tab}">${fmtDur(total)}</b></div>
+  box.innerHTML=`<div class="ttbl"><div class="ttrow tthead"><div>✓</div><div>Tarea</div><div>Tiempo que me demoro</div><div>Temporizador</div><div></div></div>${body}</div>
     <button class="btn ghost" type="button" onclick="tiempoAdd('${tab}')" style="margin-top:12px">➕ Agregar tarea</button>`;
 }
-function updateTotal(tab){ var el=document.getElementById('tttotal-'+tab); if(el) el.textContent=fmtDur(TIME[tab].reduce((s,r)=>s+parseDur(r.tiempo),0)); }
+function tSums(tab){ var rows=TIME[tab]; return { est:rows.reduce((s,r)=>s+parseDur(r.tiempo),0), real:rows.reduce((s,r)=>s+parseDur(r.real),0), meta:parseDur(TIME.meta[tab]) }; }
+function renderChart(tab){
+  var s=tSums(tab), max=Math.max(s.meta,s.est,s.real,1);
+  var st=document.getElementById('ttstats-'+tab);
+  if(st) st.innerHTML=
+    `<div class="ttstat meta"><span>🎯 Meta</span><b>${s.meta?fmtDur(s.meta):'—'}</b></div>`+
+    `<div class="ttstat est"><span>✏️ Estimado</span><b>${fmtDur(s.est)}</b></div>`+
+    `<div class="ttstat real"><span>⏱️ Real</span><b>${s.real?fmtDur(s.real):'—'}</b></div>`;
+  var over = s.meta && s.real>s.meta;
+  var bar=(lbl,val,cls)=>`<div class="ttbar"><span class="ttbar-l">${lbl}</span><div class="ttbar-t"><i class="${cls}" style="width:${Math.round(val/max*100)}%"></i></div><span class="ttbar-v">${val?fmtDur(val):'—'}</span></div>`;
+  var ch=document.getElementById('ttchart-'+tab);
+  if(ch) ch.innerHTML = bar('🎯 Meta',s.meta,'meta')+bar('✏️ Estimado',s.est,'est')+bar('⏱️ Real',s.real,(over?'over':'real'));
+}
+function evDiffTxt(diff){ return diff<=0? '✓ '+fmtDur(-diff)+' menos' : '⚠ '+fmtDur(diff)+' más'; }
+function renderEval(tab){
+  var box=document.getElementById('tteval-'+tab); if(!box) return;
+  var rows=TIME[tab];
+  if(!rows.length){ box.innerHTML=`<div class="empty" style="padding:18px">Agregá tareas arriba para poder evaluarlas.</div>`; return; }
+  var body=rows.map(function(r,i){
+    var est=parseDur(r.tiempo), real=parseDur(r.real), diff=real-est;
+    var dcls=!real?'':(diff<=0?'good':'bad'), dtxt=!real?'—':evDiffTxt(diff);
+    var nm=esc(r.tarea)||'<span style="color:var(--sub)">(sin nombre)</span>';
+    return `<div class="ttrow evrow">
+      <div class="evname">${nm}</div>
+      <div class="evest">${est?fmtDur(est):'—'}</div>
+      <div><input value="${esc(r.real)}" placeholder="real…" oninput="tiempoReal('${tab}',${i},this.value)"></div>
+      <div class="evdiff ${dcls}" id="evdiff_${tab}_${i}">${dtxt}</div>
+    </div>`;
+  }).join('');
+  box.innerHTML=`<div class="ttbl"><div class="ttrow evrow tthead"><div>Tarea</div><div>Estimado</div><div>Tiempo real</div><div>Diferencia</div></div>${body}
+    <div class="ttrow evrow evtot" id="evtot-${tab}"></div></div>`;
+  updateEvalTotal(tab);
+}
+function updateEvalTotal(tab){
+  var row=document.getElementById('evtot-'+tab); if(!row) return;
+  var s=tSums(tab), tdiff=s.real-s.est;
+  row.innerHTML=`<div><b>Total</b></div><div>${fmtDur(s.est)}</div><div>${s.real?fmtDur(s.real):'—'}</div><div class="evdiff ${!s.real?'':(tdiff<=0?'good':'bad')}">${!s.real?'—':evDiffTxt(tdiff)}</div>`;
+}
+function metaSet(tab,v){ TIME.meta[tab]=v; renderChart(tab); }
+function tiempoDone(tab,i){
+  if(!TIME[tab][i]) return; TIME[tab][i].done=!TIME[tab][i].done;
+  var key=tab+'_'+i, row=document.getElementById('ttrow_'+key), b=row&&row.querySelector('.ttchk');
+  if(row) row.classList.toggle('ok',TIME[tab][i].done);
+  if(b){ b.classList.toggle('on',TIME[tab][i].done); b.textContent=TIME[tab][i].done?'✓':''; }
+}
+function tiempoReal(tab,i,v){
+  if(!TIME[tab][i]) return; TIME[tab][i].real=v;
+  var est=parseDur(TIME[tab][i].tiempo), real=parseDur(v), diff=real-est;
+  var el=document.getElementById('evdiff_'+tab+'_'+i);
+  if(el){ el.className='evdiff '+(!real?'':(diff<=0?'good':'bad')); el.textContent=!real?'—':evDiffTxt(diff); }
+  updateEvalTotal(tab); renderChart(tab);
+}
 function tiempoSet(tab,i,k,v){ if(TIME[tab][i]) TIME[tab][i][k]=v; }
 function tiempoDur(tab,i,v){
   if(!TIME[tab][i]) return; TIME[tab][i].tiempo=v; var key=tab+'_'+i;
   if(!TIME_TIMERS[key]){ TIME[tab][i].left=parseDur(v); var t=document.getElementById('ttime_'+key); if(t){t.textContent=fmtHMS(TIME[tab][i].left); t.classList.remove('done');} }
-  updateTotal(tab);
+  renderChart(tab); renderEval(tab);
 }
-function tiempoAdd(tab){ TIME[tab].push({tarea:'',tiempo:'',left:0}); renderTiempo(tab); }
+function tiempoAdd(tab){ TIME[tab].push({tarea:'',tiempo:'',real:'',done:false,left:0}); renderTiempo(tab); }
 function tiempoDel(tab,i){ stopTabTimers(tab); TIME[tab].splice(i,1); renderTiempo(tab); }
 function tiempoReset(tab,i){ if(!TIME[tab][i])return; var key=tab+'_'+i; if(TIME_TIMERS[key]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];} TIME[tab][i].left=parseDur(TIME[tab][i].tiempo); renderTiempo(tab); }
 function tiempoToggle(tab,i){
@@ -1079,8 +1178,11 @@ async function saveDev(){
   scrSyncVars();
   data.scr_variaciones = SCR_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
   // Tiempo de desarrollo (tareas + cronómetro)
-  data.tiempo_pagina = TIME.pagina.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',left:+r.left||0}));
-  data.tiempo_anuncios = TIME.anuncios.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',left:+r.left||0}));
+  const mapT=r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',real:r.real||'',done:!!r.done,left:+r.left||0});
+  data.tiempo_pagina = TIME.pagina.map(mapT);
+  data.tiempo_anuncios = TIME.anuncios.map(mapT);
+  data.meta_pagina = TIME.meta.pagina||'';
+  data.meta_anuncios = TIME.meta.anuncios||'';
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});

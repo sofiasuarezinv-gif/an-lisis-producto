@@ -152,6 +152,10 @@
   .ttbar-t>i{display:block;height:100%;border-radius:8px;min-width:2px;transition:width .35s ease}
   .ttbar-t>i.meta{background:var(--sub)} .ttbar-t>i.est{background:var(--brand)} .ttbar-t>i.real{background:var(--green,#30a46c)} .ttbar-t>i.over{background:var(--red,#e5484d)}
   .ttbar-v{font-size:12.5px;font-weight:700;color:var(--sub);text-align:right;font-variant-numeric:tabular-nums}
+  .ttprog-t{height:22px;background:var(--bg3,var(--bg1));border-radius:11px;overflow:hidden;margin-bottom:9px}
+  .ttprog-t>i{display:block;height:100%;border-radius:11px;background:var(--green,#30a46c);min-width:2px;transition:width .35s ease}
+  .ttprog-t>i.over{background:var(--red,#e5484d)}
+  .ttprog-cap{font-size:13px;color:var(--sub)} .ttprog-cap b{color:var(--ink)} .pover{color:var(--red,#e5484d);font-weight:700}
   /* Evaluación */
   .tteval{margin-top:18px;padding:16px 18px;background:var(--bg2);border:1px solid var(--line);border-radius:14px}
   .ttrow.evrow{grid-template-columns:1fr 110px 130px 150px}
@@ -316,6 +320,7 @@
     <div class="tab active" id="tab-list" onclick="showTab('list')">📦 Productos <span class="badge" id="pcount">0</span></div>
     <div class="tab" id="tab-dev" onclick="showTab('dev')">🚀 Desarrollo de producto</div>
     <div class="tab" id="tab-report" onclick="showTab('report')">📊 Reporte de testeos</div>
+    <div class="tab" id="tab-optim" onclick="showTab('optim')">⏱️ Optimización de tiempo</div>
   </div>
 
   <!-- PRODUCTOS (lista + agregar) -->
@@ -348,22 +353,18 @@
 
   <!-- REPORTE DE TESTEOS -->
   <div id="view-report" style="display:none">
-    <div class="subtabs">
-      <div class="subtab active" id="rsub-reporte" onclick="repSub('reporte')">📊 Reporte</div>
-      <div class="subtab" id="rsub-optim" onclick="repSub('optim')">⏱️ Optimización de tiempo</div>
+    <div class="toolbar">
+      <span style="font-size:13px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Mes <span id="rep-month-wrap"></span></span>
+      <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
+      <span class="count" id="rep-total"></span>
     </div>
-    <div id="rpanel-reporte">
-      <div class="toolbar">
-        <span style="font-size:13px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Mes <span id="rep-month-wrap"></span></span>
-        <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
-        <span class="count" id="rep-total"></span>
-      </div>
-      <div id="rep-body"></div>
-    </div>
-    <div id="rpanel-optim" style="display:none">
-      <p style="color:var(--sub);font-size:13px;margin:2px 0 16px">Cuánto te demoraste realmente en cada producto (según el <b>tiempo real</b> que registrás en Desarrollo de producto → ⏱️ Tiempo de desarrollo).</p>
-      <div id="optim-body"></div>
-    </div>
+    <div id="rep-body"></div>
+  </div>
+
+  <!-- OPTIMIZACIÓN DE TIEMPO (4ª pestaña) -->
+  <div id="view-optim" style="display:none">
+    <p style="color:var(--sub);font-size:13px;margin:2px 0 16px">Cuánto te demoraste realmente en cada producto (según el <b>tiempo real</b> que registrás en Desarrollo de producto → ⏱️ Tiempo de desarrollo).</p>
+    <div id="optim-body"></div>
   </div>
 
   <!-- DESARROLLO DE PRODUCTO -->
@@ -712,12 +713,15 @@ function showTab(t){
   $('#view-list').style.display = t==='list'?'':'none';
   $('#view-report').style.display = t==='report'?'':'none';
   $('#view-dev').style.display = t==='dev'?'':'none';
+  $('#view-optim').style.display = t==='optim'?'':'none';
   $('#tab-list').classList.toggle('active',t==='list');
   $('#tab-report').classList.toggle('active',t==='report');
   $('#tab-dev').classList.toggle('active',t==='dev');
+  $('#tab-optim').classList.toggle('active',t==='optim');
   if(t==='list') load();
   if(t==='report') loadReport();
   if(t==='dev') loadDev();
+  if(t==='optim') loadOptim();
 }
 function prodSub(which){
   $('#ppanel-lista').style.display = which==='lista'?'':'none';
@@ -799,16 +803,17 @@ function renderTasks(tab){
 }
 function tSums(tab){ var rows=TIME[tab]; return { est:rows.reduce((s,r)=>s+parseDur(r.tiempo),0), real:rows.reduce((s,r)=>s+parseDur(r.real),0), meta:parseDur(TIME.meta[tab]) }; }
 function renderChart(tab){
-  var s=tSums(tab), max=Math.max(s.meta,s.est,s.real,1);
+  var s=tSums(tab);
   var st=document.getElementById('ttstats-'+tab);
   if(st) st.innerHTML=
     `<div class="ttstat meta"><span>🎯 Meta</span><b>${s.meta?fmtDur(s.meta):'—'}</b></div>`+
-    `<div class="ttstat est"><span>✏️ Estimado</span><b>${fmtDur(s.est)}</b></div>`+
-    `<div class="ttstat real"><span>⏱️ Real</span><b>${s.real?fmtDur(s.real):'—'}</b></div>`;
-  var over = s.meta && s.real>s.meta;
-  var bar=(lbl,val,cls)=>`<div class="ttbar"><span class="ttbar-l">${lbl}</span><div class="ttbar-t"><i class="${cls}" style="width:${Math.round(val/max*100)}%"></i></div><span class="ttbar-v">${val?fmtDur(val):'—'}</span></div>`;
-  var ch=document.getElementById('ttchart-'+tab);
-  if(ch) ch.innerHTML = bar('🎯 Meta',s.meta,'meta')+bar('✏️ Estimado',s.est,'est')+bar('⏱️ Real',s.real,(over?'over':'real'));
+    `<div class="ttstat real"><span>⏱️ Cuánto voy</span><b>${s.real?fmtDur(s.real):'—'}</b></div>`;
+  var ch=document.getElementById('ttchart-'+tab); if(!ch) return;
+  if(!s.meta){ ch.innerHTML=`<div class="ttprog-cap">Escribí tu meta arriba para ver el progreso.</div>`; return; }
+  var pct=Math.round(s.real/s.meta*100), over=s.real>s.meta, fill=Math.min(100,s.real/s.meta*100);
+  ch.innerHTML=`
+    <div class="ttprog-t"><i class="${over?'over':''}" style="width:${fill}%"></i></div>
+    <div class="ttprog-cap">Vas <b>${fmtDur(s.real)}</b> de tu meta de <b>${fmtDur(s.meta)}</b> · <b>${pct}%</b>${over?' <span class="pover">⚠ te pasaste</span>':''}</div>`;
 }
 function evDiffTxt(diff){ return diff<=0? '✓ '+fmtDur(-diff)+' menos' : '⚠ '+fmtDur(diff)+' más'; }
 function renderEval(tab){
@@ -1222,14 +1227,8 @@ async function saveDev(){
 }
 
 // ─── Reporte de testeos (por semana lun–dom, dentro del mes) ───
-// ─── Optimización de tiempo (gráfica por producto: real vs estimado) ───
-function repSub(which){
-  $('#rpanel-reporte').style.display = which==='reporte'?'':'none';
-  $('#rpanel-optim').style.display = which==='optim'?'':'none';
-  $('#rsub-reporte').classList.toggle('active',which==='reporte');
-  $('#rsub-optim').classList.toggle('active',which==='optim');
-  if(which==='optim') renderOptim();
-}
+// ─── Optimización de tiempo (4ª pestaña: gráfica por producto: real vs estimado) ───
+async function loadOptim(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} renderOptim(); }
 function optSums(p,key){ var arr=Array.isArray(p[key])?p[key]:[]; return { est:arr.reduce((s,r)=>s+parseDur(r.tiempo),0), real:arr.reduce((s,r)=>s+parseDur(r.real),0) }; }
 function optChart(title,key){
   var items=PRODUCTS.map(function(p){ var s=optSums(p,key); return {nombre:p.nombre||'(sin nombre)', est:s.est, real:s.real}; }).filter(x=>x.real>0||x.est>0);
@@ -1255,7 +1254,7 @@ function optChart(title,key){
   </div>`;
 }
 function renderOptim(){ var box=document.getElementById('optim-body'); if(!box) return; box.innerHTML = optChart('📄 Página','tiempo_pagina') + optChart('📣 Anuncios','tiempo_anuncios'); }
-async function loadReport(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} buildMonthSelect(); renderReport(); if($('#rpanel-optim')&&$('#rpanel-optim').style.display!=='none') renderOptim(); }
+async function loadReport(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} buildMonthSelect(); renderReport(); }
 function mondayOf(dstr){ const d=new Date(dstr+'T00:00:00'); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); return d; }
 function fmtDia(d){ return d.toISOString().slice(0,10); }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }

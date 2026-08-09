@@ -118,6 +118,18 @@
   .devbar select{background:var(--bg3);border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:7px 9px;font:600 13px "Inter";outline:none}
   .devblocks{display:grid;grid-template-columns:1fr;gap:12px}
   .devpanel{background:var(--bg1);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .ttbl{display:flex;flex-direction:column;gap:8px}
+  .ttrow{display:grid;grid-template-columns:1fr 130px 168px 40px;gap:8px;align-items:center}
+  .ttrow.tthead{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--sub);font-weight:700;padding:0 2px}
+  .ttrow input{width:100%;background:var(--bg3,var(--bg2));border:1px solid var(--line);border-radius:8px;color:var(--ink);padding:8px 10px;font:500 13.5px "Inter",system-ui;outline:none}
+  .ttrow input:focus{border-color:var(--brand)}
+  .ttchrono{display:flex;align-items:center;gap:6px}
+  .ttchrono .ttime{font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;min-width:66px;color:var(--ink)}
+  .ttbtn{background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:13px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+  .ttbtn:hover{border-color:var(--brand)}
+  .ttbtn.run{background:var(--amber,#f5a623);border-color:var(--amber,#f5a623);color:#3d2a05}
+  .ttbtn.del{color:var(--red,#e5484d)}
+  @media(max-width:620px){.ttrow{grid-template-columns:1fr 84px 148px 34px}.ttrow input{padding:7px 8px;font-size:12.5px}.ttchrono .ttime{min-width:58px;font-size:13px}.ttbtn{width:28px;height:28px}}
   .devblock{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   /* Ángulos de venta (checklist) */
   .ang-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -652,8 +664,52 @@ function prodSub(which){
 function prodPanel(which){
   $('#prodpanel-pagina').style.display = which==='pagina'?'':'none';
   $('#prodpanel-anuncios').style.display = which==='anuncios'?'':'none';
+  var tp=$('#prodpanel-tiempo'); if(tp) tp.style.display = which==='tiempo'?'':'none';
   $('#prod-pagina').classList.toggle('active',which==='pagina');
   $('#prod-anuncios').classList.toggle('active',which==='anuncios');
+  var tt=$('#prod-tiempo'); if(tt) tt.classList.toggle('active',which==='tiempo');
+}
+
+// ─── Tiempo de desarrollo (tareas + cronómetro) ───
+let TIME={pagina:[],anuncios:[]}, TIME_TIMERS={};
+function fmtHMS(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60,z=n=>(n<10?'0':'')+n;return z(h)+':'+z(m)+':'+z(ss);}
+function stopAllTimers(){ Object.keys(TIME_TIMERS).forEach(k=>clearInterval(TIME_TIMERS[k])); TIME_TIMERS={}; }
+function stopTabTimers(tab){ Object.keys(TIME_TIMERS).forEach(k=>{ if(k.indexOf(tab+'_')===0){clearInterval(TIME_TIMERS[k]);delete TIME_TIMERS[k];} }); }
+function initTiempo(p){ var norm=a=>Array.isArray(a)?a.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0})):[]; TIME.pagina=norm(p.tiempo_pagina); TIME.anuncios=norm(p.tiempo_anuncios); }
+function tiempoSub(tab){
+  $('#tpanel-pagina').style.display=tab==='pagina'?'':'none';
+  $('#tpanel-anuncios').style.display=tab==='anuncios'?'':'none';
+  $('#tsub-pagina').classList.toggle('active',tab==='pagina');
+  $('#tsub-anuncios').classList.toggle('active',tab==='anuncios');
+}
+function renderTiempo(tab){
+  var box=document.getElementById('ttab-'+tab); if(!box) return;
+  var rows=TIME[tab];
+  var body = rows.length ? rows.map(function(r,i){
+    var key=tab+'_'+i, run=!!TIME_TIMERS[key];
+    return `<div class="ttrow">
+      <div><input value="${esc(r.tarea)}" placeholder="Describe la tarea…" oninput="tiempoSet('${tab}',${i},'tarea',this.value)"></div>
+      <div><input value="${esc(r.tiempo)}" placeholder="ej: 45 min" oninput="tiempoSet('${tab}',${i},'tiempo',this.value)"></div>
+      <div class="ttchrono"><span class="ttime" id="ttime_${key}">${fmtHMS(r.seconds)}</span>
+        <button class="ttbtn ${run?'run':''}" id="ttbtn_${key}" type="button" title="${run?'Pausar':'Iniciar'}" onclick="tiempoToggle('${tab}',${i})">${run?'⏸':'▶'}</button>
+        <button class="ttbtn" type="button" title="Reiniciar" onclick="tiempoReset('${tab}',${i})">↺</button></div>
+      <div><button class="ttbtn del" type="button" title="Eliminar" onclick="tiempoDel('${tab}',${i})">✕</button></div>
+    </div>`;
+  }).join('') : `<div class="empty" style="padding:24px">Sin tareas todavía. Agregá la primera con "➕ Agregar tarea".</div>`;
+  box.innerHTML=`<div class="ttbl"><div class="ttrow tthead"><div>Tarea</div><div>Tiempo que me demoro</div><div>Cronómetro</div><div></div></div>${body}</div>
+    <button class="btn ghost" type="button" onclick="tiempoAdd('${tab}')" style="margin-top:10px">➕ Agregar tarea</button>`;
+}
+function tiempoSet(tab,i,k,v){ if(TIME[tab][i]) TIME[tab][i][k]=v; }
+function tiempoAdd(tab){ TIME[tab].push({tarea:'',tiempo:'',seconds:0}); renderTiempo(tab); }
+function tiempoDel(tab,i){ stopTabTimers(tab); TIME[tab].splice(i,1); renderTiempo(tab); }
+function tiempoReset(tab,i){ if(!TIME[tab][i])return; var key=tab+'_'+i; if(TIME_TIMERS[key]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];} TIME[tab][i].seconds=0; renderTiempo(tab); }
+function tiempoToggle(tab,i){
+  var key=tab+'_'+i;
+  if(TIME_TIMERS[key]){ clearInterval(TIME_TIMERS[key]); delete TIME_TIMERS[key]; var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='▶';b.classList.remove('run');b.title='Iniciar';} }
+  else{
+    TIME_TIMERS[key]=setInterval(function(){ if(!TIME[tab][i]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];return;} TIME[tab][i].seconds=(+TIME[tab][i].seconds||0)+1; var t=document.getElementById('ttime_'+key); if(t)t.textContent=fmtHMS(TIME[tab][i].seconds); },1000);
+    var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='⏸';b.classList.add('run');b.title='Pausar';}
+  }
 }
 
 // ─── Desarrollo de producto ───
@@ -728,7 +784,6 @@ function devBlockCell(b,i){
       <input class="blk-title" value="${esc(b.label)}" placeholder="Título de la sección" title="Clic para editar el título" oninput="dblkLabel('${b.id}',this.value)">
       <div class="blk-ctrls">
         <span class="trk"><span class="trk-l">Copy</span>${statusDots('c',b.id,b.cs)}<button class="noteb ${b.cn?'has':''}" id="nb_c_${b.id}" type="button" title="Nota copy" onclick="dblkNote('${b.id}','c')">🗒️</button></span>
-        <span class="trk"><span class="trk-l">Diseño</span>${statusDots('d',b.id,b.ds)}<button class="noteb ${b.dn?'has':''}" id="nb_d_${b.id}" type="button" title="Nota diseño" onclick="dblkNote('${b.id}','d')">🗒️</button></span>
         <button class="mvb" type="button" title="Subir" onclick="dblkMove('${b.id}',-1)" ${i<=0?'disabled':''}>↑</button>
         <button class="mvb" type="button" title="Bajar" onclick="dblkMove('${b.id}',1)" ${i>=last?'disabled':''}>↓</button>
         <button class="cpy" type="button" title="Copiar" onclick="dblkCopy('${b.id}')">📋</button>
@@ -737,7 +792,6 @@ function devBlockCell(b,i){
     </div>
     ${inp}
     <div class="blk-note" id="note_c_${b.id}" style="display:${b.cn?'block':'none'}"><label>📝 Nota copy</label><textarea placeholder="Nota del copy…" oninput="dblkNoteVal('${b.id}','c',this.value)">${esc(b.cn)}</textarea></div>
-    <div class="blk-note" id="note_d_${b.id}" style="display:${b.dn?'block':'none'}"><label>🎨 Nota diseño</label><textarea placeholder="Nota del diseño…" oninput="dblkNoteVal('${b.id}','d',this.value)">${esc(b.dn)}</textarea></div>
   </div>`;
 }
 function devBlocksInner(){ return DBLK.map((b,i)=>devBlockCell(b,i)).join(''); }
@@ -877,7 +931,7 @@ function renderDevFolders(){
   if(!list.length){ box.innerHTML=`<div class="empty" style="grid-column:1/-1">Sin resultados para "${esc(q)}".</div>`; return; }
   box.innerHTML=list.map(p=>`<div class="folder" onclick="openDevEditor('${p.pid}')"><div class="fthumb">${p.foto?`<img src="${p.foto}" alt="">`:'📷'}</div><div class="fname">${esc(p.nombre||'(sin nombre)')}</div><div onclick="event.stopPropagation()">${ddHtml('devest_'+p.pid, p.dev_estado||'', [{val:'',label:'⚪ Aún no desarrollado'},{val:'en_curso',label:'🟡 En curso'},{val:'completado',label:'✅ Completado'}], 'devFolderEstado', 'block')}</div></div>`).join('');
 }
-function devBackToFolders(){ DEV_CUR=null; $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML=''; $('#dev-folders-wrap').style.display=''; renderDevFolders(); }
+function devBackToFolders(){ stopAllTimers(); DEV_CUR=null; $('#dev-editor').style.display='none'; $('#dev-editor').innerHTML=''; $('#dev-folders-wrap').style.display=''; renderDevFolders(); }
 function devOnEstado(){ const s=ddVal('d_dev_estado'); const b=$('#dev-badge'); if(b) b.innerHTML=devBadge({dev_estado:s}); }
 function openDevEditor(pid){
   const p=PRODUCTS.find(x=>x.pid===pid); if(!p){ return; }
@@ -891,7 +945,9 @@ function openDevEditor(pid){
   };
   SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
   SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
+  stopAllTimers();
   initDevBlocks(p);
+  initTiempo(p);
   let html=`<div class="devbar">
     <button class="btn ghost" type="button" onclick="devBackToFolders()" style="padding:8px 12px">← Productos</button>
     <div><strong style="font-size:16px">${esc(p.nombre||'Producto')}</strong> <span id="dev-badge">${devBadge(p)}</span></div>
@@ -903,13 +959,13 @@ function openDevEditor(pid){
   <div class="subtabs">
     <div class="subtab active" id="prod-pagina" onclick="prodPanel('pagina')">📄 Página</div>
     <div class="subtab" id="prod-anuncios" onclick="prodPanel('anuncios')">📣 Anuncios</div>
+    <div class="subtab" id="prod-tiempo" onclick="prodPanel('tiempo')">⏱️ Tiempo de desarrollo</div>
   </div>
   <div id="prodpanel-pagina">
     <div class="progwrap">
       <div class="progcol">
         <div class="prog"><span class="prog-name">📝 Copy</span><div class="progbar"><i id="prog-copy-bar"></i></div><b id="prog-copy">0%</b><span class="counts" id="cnt-copy"></span></div>
-        <div class="prog"><span class="prog-name">🎨 Diseño</span><div class="progbar"><i id="prog-design-bar"></i></div><b id="prog-design">0%</b><span class="counts" id="cnt-design"></span></div>
-        <div class="fltrow">🔎 Filtrar · <span class="fltlbl">Copy</span>`+ddHtml('flt-copy','all',FILTER_OPTS,'applyDevFilter','sm')+` <span class="fltlbl">Diseño</span>`+ddHtml('flt-design','all',FILTER_OPTS,'applyDevFilter','sm')+`</div>
+        <div class="fltrow">🔎 Filtrar · <span class="fltlbl">Copy</span>`+ddHtml('flt-copy','all',FILTER_OPTS,'applyDevFilter','sm')+`</div>
       </div>
       <div class="progactions">
         <button class="btn ghost" id="copysel-btn" type="button" onclick="copySelected()" disabled>✅ Copiar seleccionadas (<span id="copysel-n">0</span>)</button>
@@ -948,10 +1004,19 @@ function openDevEditor(pid){
       <button class="btn ghost" type="button" onclick="scrAddGroup()" style="margin-top:4px">➕ Agregar variación de un script</button>
     </div>
   </div>
+  <div id="prodpanel-tiempo" style="display:none">
+    <div class="subtabs mini">
+      <div class="subtab active" id="tsub-pagina" onclick="tiempoSub('pagina')">📄 Página</div>
+      <div class="subtab" id="tsub-anuncios" onclick="tiempoSub('anuncios')">📣 Anuncios</div>
+    </div>
+    <div class="devpanel" id="tpanel-pagina"><div id="ttab-pagina"></div></div>
+    <div class="devpanel" id="tpanel-anuncios" style="display:none"><div id="ttab-anuncios"></div></div>
+  </div>
   <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar</button><span class="msg" id="dev-msg"></span></div>`;
   $('#dev-editor').innerHTML=html;
   renderScrVars();
   angInit(p,'scr-ang-list',true);
+  renderTiempo('pagina'); renderTiempo('anuncios');
   updateProgress(); applyDevFilter(); updateCopySel();
 }
 function copyBlock(key){
@@ -979,6 +1044,9 @@ async function saveDev(){
   data.scr_estado = data.dev_estado;
   scrSyncVars();
   data.scr_variaciones = SCR_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
+  // Tiempo de desarrollo (tareas + cronómetro)
+  data.tiempo_pagina = TIME.pagina.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0}));
+  data.tiempo_anuncios = TIME.anuncios.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0}));
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});

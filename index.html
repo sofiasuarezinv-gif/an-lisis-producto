@@ -168,6 +168,23 @@
     .ttstat>b{font-size:18px}
     .ttrow.evrow{grid-template-columns:1fr 68px 88px 92px} .evname{font-size:12px} .evdiff{font-size:11px}
   }
+  /* Optimización de tiempo (reporte) */
+  .optsec{margin-bottom:26px}
+  .opt-h{font-size:15px;font-weight:800;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .opt-avg{font-size:12px;font-weight:600;color:var(--sub)} .opt-avg b{color:var(--brand)}
+  .opt-legend{display:flex;gap:16px;margin-bottom:12px;font-size:11.5px;color:var(--sub);flex-wrap:wrap}
+  .opt-legend span{display:inline-flex;align-items:center;gap:6px}
+  .opt-legend i.lg{width:14px;height:8px;border-radius:4px;display:inline-block}
+  i.lg.est{background:var(--sub)} i.lg.real{background:var(--green,#30a46c)} i.lg.over{background:var(--red,#e5484d)}
+  .optrow{display:grid;grid-template-columns:160px 1fr 158px;gap:12px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+  .opt-name{font-size:13px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .opt-track{display:flex;flex-direction:column;gap:4px}
+  .opt-line{height:9px;background:var(--bg2);border-radius:5px;overflow:hidden}
+  .opt-line>i{display:block;height:100%;border-radius:5px;min-width:2px;transition:width .35s ease}
+  .opt-est{background:var(--sub)} .opt-real{background:var(--green,#30a46c)} .opt-real.over{background:var(--red,#e5484d)}
+  .opt-v{font-size:12.5px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+  .opt-sub{color:var(--sub);font-weight:500;font-size:11px}
+  @media(max-width:640px){.optrow{grid-template-columns:92px 1fr 92px;gap:8px}.opt-name{font-size:11.5px}.opt-v{font-size:11px}.opt-sub{display:none}}
   .devblock{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
   /* Ángulos de venta (checklist) */
   .ang-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
@@ -331,12 +348,22 @@
 
   <!-- REPORTE DE TESTEOS -->
   <div id="view-report" style="display:none">
-    <div class="toolbar">
-      <span style="font-size:13px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Mes <span id="rep-month-wrap"></span></span>
-      <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
-      <span class="count" id="rep-total"></span>
+    <div class="subtabs">
+      <div class="subtab active" id="rsub-reporte" onclick="repSub('reporte')">📊 Reporte</div>
+      <div class="subtab" id="rsub-optim" onclick="repSub('optim')">⏱️ Optimización de tiempo</div>
     </div>
-    <div id="rep-body"></div>
+    <div id="rpanel-reporte">
+      <div class="toolbar">
+        <span style="font-size:13px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Mes <span id="rep-month-wrap"></span></span>
+        <input id="rep-search" style="flex:1;min-width:180px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:10px 12px;font:500 14px 'Inter';outline:none" placeholder="🔎 Buscar producto…" oninput="renderReport()">
+        <span class="count" id="rep-total"></span>
+      </div>
+      <div id="rep-body"></div>
+    </div>
+    <div id="rpanel-optim" style="display:none">
+      <p style="color:var(--sub);font-size:13px;margin:2px 0 16px">Cuánto te demoraste realmente en cada producto (según el <b>tiempo real</b> que registrás en Desarrollo de producto → ⏱️ Tiempo de desarrollo).</p>
+      <div id="optim-body"></div>
+    </div>
   </div>
 
   <!-- DESARROLLO DE PRODUCTO -->
@@ -1195,7 +1222,40 @@ async function saveDev(){
 }
 
 // ─── Reporte de testeos (por semana lun–dom, dentro del mes) ───
-async function loadReport(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} buildMonthSelect(); renderReport(); }
+// ─── Optimización de tiempo (gráfica por producto: real vs estimado) ───
+function repSub(which){
+  $('#rpanel-reporte').style.display = which==='reporte'?'':'none';
+  $('#rpanel-optim').style.display = which==='optim'?'':'none';
+  $('#rsub-reporte').classList.toggle('active',which==='reporte');
+  $('#rsub-optim').classList.toggle('active',which==='optim');
+  if(which==='optim') renderOptim();
+}
+function optSums(p,key){ var arr=Array.isArray(p[key])?p[key]:[]; return { est:arr.reduce((s,r)=>s+parseDur(r.tiempo),0), real:arr.reduce((s,r)=>s+parseDur(r.real),0) }; }
+function optChart(title,key){
+  var items=PRODUCTS.map(function(p){ var s=optSums(p,key); return {nombre:p.nombre||'(sin nombre)', est:s.est, real:s.real}; }).filter(x=>x.real>0||x.est>0);
+  if(!items.length) return `<div class="optsec"><div class="opt-h">${title}</div><div class="empty" style="padding:22px">Todavía no hay tiempos registrados. Llená el "tiempo real" de cada tarea en Desarrollo de producto → ⏱️ Tiempo de desarrollo.</div></div>`;
+  var max=Math.max.apply(null, items.map(x=>Math.max(x.real,x.est)).concat([1]));
+  var withReal=items.filter(x=>x.real>0);
+  var avg=withReal.length? Math.round(withReal.reduce((s,x)=>s+x.real,0)/withReal.length):0;
+  var rows=items.map(function(x){
+    var over=x.est && x.real>x.est;
+    return `<div class="optrow">
+      <div class="opt-name" title="${esc(x.nombre)}">${esc(x.nombre)}</div>
+      <div class="opt-track">
+        <div class="opt-line"><i class="opt-est" style="width:${Math.round(x.est/max*100)}%"></i></div>
+        <div class="opt-line"><i class="opt-real ${over?'over':''}" style="width:${Math.round(x.real/max*100)}%"></i></div>
+      </div>
+      <div class="opt-v">${x.real?fmtDur(x.real):'—'}${x.est?` <span class="opt-sub">/ est ${fmtDur(x.est)}</span>`:''}</div>
+    </div>`;
+  }).join('');
+  return `<div class="optsec">
+    <div class="opt-h">${title} <span class="opt-avg">Promedio real: <b>${avg?fmtDur(avg):'—'}</b></span></div>
+    <div class="opt-legend"><span><i class="lg est"></i>Estimado</span><span><i class="lg real"></i>Real</span><span><i class="lg over"></i>Real (se pasó del estimado)</span></div>
+    ${rows}
+  </div>`;
+}
+function renderOptim(){ var box=document.getElementById('optim-body'); if(!box) return; box.innerHTML = optChart('📄 Página','tiempo_pagina') + optChart('📣 Anuncios','tiempo_anuncios'); }
+async function loadReport(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} buildMonthSelect(); renderReport(); if($('#rpanel-optim')&&$('#rpanel-optim').style.display!=='none') renderOptim(); }
 function mondayOf(dstr){ const d=new Date(dstr+'T00:00:00'); const off=(d.getDay()+6)%7; d.setDate(d.getDate()-off); return d; }
 function fmtDia(d){ return d.toISOString().slice(0,10); }
 function addDays(d,n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }

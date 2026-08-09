@@ -125,6 +125,12 @@
   .ttrow input:focus{border-color:var(--brand)}
   .ttchrono{display:flex;align-items:center;gap:6px}
   .ttchrono .ttime{font-variant-numeric:tabular-nums;font-weight:800;font-size:14px;min-width:66px;color:var(--ink)}
+  .ttchrono .ttime.run{color:var(--brand)}
+  .ttchrono .ttime.done{color:var(--red,#e5484d)}
+  .tttotal{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:14px;padding:14px 18px;background:var(--bg2);border:1px solid var(--brand);border-radius:14px}
+  .tttotal>span{font-size:12.5px;color:var(--sub);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+  .tttotal>b{font-size:28px;font-weight:800;color:var(--brand);font-variant-numeric:tabular-nums}
+  @media(max-width:620px){.tttotal{padding:12px 14px}.tttotal>b{font-size:22px}}
   .ttbtn{background:var(--bg2);border:1px solid var(--line);color:var(--ink);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:13px;flex:none;display:inline-flex;align-items:center;justify-content:center}
   .ttbtn:hover{border-color:var(--brand)}
   .ttbtn.run{background:var(--amber,#f5a623);border-color:var(--amber,#f5a623);color:#3d2a05}
@@ -670,12 +676,26 @@ function prodPanel(which){
   var tt=$('#prod-tiempo'); if(tt) tt.classList.toggle('active',which==='tiempo');
 }
 
-// ─── Tiempo de desarrollo (tareas + cronómetro) ───
+// ─── Tiempo de desarrollo (tareas + temporizador con cuenta regresiva) ───
 let TIME={pagina:[],anuncios:[]}, TIME_TIMERS={};
 function fmtHMS(s){s=Math.max(0,Math.floor(s));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60,z=n=>(n<10?'0':'')+n;return z(h)+':'+z(m)+':'+z(ss);}
+// interpreta "1 hora y 30 min", "45 min", "1 hora", "1h 20m", "90" (min) → segundos
+function parseDur(str){
+  if(!str) return 0;
+  var s=String(str).toLowerCase().replace(',','.'), h=0,m=0;
+  var mh=s.match(/(\d+(?:\.\d+)?)\s*h/); if(mh) h=parseFloat(mh[1]);
+  var mm=s.match(/(\d+)\s*m/); if(mm) m=parseInt(mm[1],10);
+  if(!mh && !mm){ var only=s.match(/(\d+)/); if(only) m=parseInt(only[1],10); } // solo número = minutos
+  return Math.round(h*3600 + m*60);
+}
+function fmtDur(sec){ sec=Math.round(sec); if(sec<=0) return '0 min'; var h=Math.floor(sec/3600),m=Math.round((sec%3600)/60); if(h&&m) return h+' h '+m+' min'; if(h) return h+(h===1?' hora':' horas'); return m+' min'; }
+function tiempoBeep(){ try{ var C=window.AudioContext||window.webkitAudioContext; if(!C)return; var ctx=new C(),o=ctx.createOscillator(),g=ctx.createGain(); o.connect(g);g.connect(ctx.destination); o.frequency.value=880; g.gain.value=0.08; o.start(); setTimeout(function(){o.stop();ctx.close();},500);}catch(e){} }
 function stopAllTimers(){ Object.keys(TIME_TIMERS).forEach(k=>clearInterval(TIME_TIMERS[k])); TIME_TIMERS={}; }
 function stopTabTimers(tab){ Object.keys(TIME_TIMERS).forEach(k=>{ if(k.indexOf(tab+'_')===0){clearInterval(TIME_TIMERS[k]);delete TIME_TIMERS[k];} }); }
-function initTiempo(p){ var norm=a=>Array.isArray(a)?a.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0})):[]; TIME.pagina=norm(p.tiempo_pagina); TIME.anuncios=norm(p.tiempo_anuncios); }
+function initTiempo(p){
+  var norm=a=>Array.isArray(a)?a.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'', left:(r.left!=null? Math.max(0,+r.left) : parseDur(r.tiempo)) })):[];
+  TIME.pagina=norm(p.tiempo_pagina); TIME.anuncios=norm(p.tiempo_anuncios);
+}
 function tiempoSub(tab){
   $('#tpanel-pagina').style.display=tab==='pagina'?'':'none';
   $('#tpanel-anuncios').style.display=tab==='anuncios'?'':'none';
@@ -687,29 +707,43 @@ function renderTiempo(tab){
   var rows=TIME[tab];
   var body = rows.length ? rows.map(function(r,i){
     var key=tab+'_'+i, run=!!TIME_TIMERS[key];
+    var left = r.left!=null? r.left : parseDur(r.tiempo), done = left<=0 && parseDur(r.tiempo)>0;
     return `<div class="ttrow">
       <div><input value="${esc(r.tarea)}" placeholder="Describe la tarea…" oninput="tiempoSet('${tab}',${i},'tarea',this.value)"></div>
-      <div><input value="${esc(r.tiempo)}" placeholder="ej: 45 min" oninput="tiempoSet('${tab}',${i},'tiempo',this.value)"></div>
-      <div class="ttchrono"><span class="ttime" id="ttime_${key}">${fmtHMS(r.seconds)}</span>
+      <div><input value="${esc(r.tiempo)}" placeholder="ej: 45 min" oninput="tiempoDur('${tab}',${i},this.value)"></div>
+      <div class="ttchrono"><span class="ttime ${done?'done':''} ${run?'run':''}" id="ttime_${key}">${fmtHMS(left)}</span>
         <button class="ttbtn ${run?'run':''}" id="ttbtn_${key}" type="button" title="${run?'Pausar':'Iniciar'}" onclick="tiempoToggle('${tab}',${i})">${run?'⏸':'▶'}</button>
         <button class="ttbtn" type="button" title="Reiniciar" onclick="tiempoReset('${tab}',${i})">↺</button></div>
       <div><button class="ttbtn del" type="button" title="Eliminar" onclick="tiempoDel('${tab}',${i})">✕</button></div>
     </div>`;
   }).join('') : `<div class="empty" style="padding:24px">Sin tareas todavía. Agregá la primera con "➕ Agregar tarea".</div>`;
-  box.innerHTML=`<div class="ttbl"><div class="ttrow tthead"><div>Tarea</div><div>Tiempo que me demoro</div><div>Cronómetro</div><div></div></div>${body}</div>
-    <button class="btn ghost" type="button" onclick="tiempoAdd('${tab}')" style="margin-top:10px">➕ Agregar tarea</button>`;
+  var total = rows.reduce((s,r)=>s+parseDur(r.tiempo),0);
+  box.innerHTML=`<div class="ttbl"><div class="ttrow tthead"><div>Tarea</div><div>Tiempo que me demoro</div><div>Temporizador</div><div></div></div>${body}</div>
+    <div class="tttotal"><span>⏳ Tiempo total estimado</span><b id="tttotal-${tab}">${fmtDur(total)}</b></div>
+    <button class="btn ghost" type="button" onclick="tiempoAdd('${tab}')" style="margin-top:12px">➕ Agregar tarea</button>`;
 }
+function updateTotal(tab){ var el=document.getElementById('tttotal-'+tab); if(el) el.textContent=fmtDur(TIME[tab].reduce((s,r)=>s+parseDur(r.tiempo),0)); }
 function tiempoSet(tab,i,k,v){ if(TIME[tab][i]) TIME[tab][i][k]=v; }
-function tiempoAdd(tab){ TIME[tab].push({tarea:'',tiempo:'',seconds:0}); renderTiempo(tab); }
+function tiempoDur(tab,i,v){
+  if(!TIME[tab][i]) return; TIME[tab][i].tiempo=v; var key=tab+'_'+i;
+  if(!TIME_TIMERS[key]){ TIME[tab][i].left=parseDur(v); var t=document.getElementById('ttime_'+key); if(t){t.textContent=fmtHMS(TIME[tab][i].left); t.classList.remove('done');} }
+  updateTotal(tab);
+}
+function tiempoAdd(tab){ TIME[tab].push({tarea:'',tiempo:'',left:0}); renderTiempo(tab); }
 function tiempoDel(tab,i){ stopTabTimers(tab); TIME[tab].splice(i,1); renderTiempo(tab); }
-function tiempoReset(tab,i){ if(!TIME[tab][i])return; var key=tab+'_'+i; if(TIME_TIMERS[key]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];} TIME[tab][i].seconds=0; renderTiempo(tab); }
+function tiempoReset(tab,i){ if(!TIME[tab][i])return; var key=tab+'_'+i; if(TIME_TIMERS[key]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];} TIME[tab][i].left=parseDur(TIME[tab][i].tiempo); renderTiempo(tab); }
 function tiempoToggle(tab,i){
-  var key=tab+'_'+i;
-  if(TIME_TIMERS[key]){ clearInterval(TIME_TIMERS[key]); delete TIME_TIMERS[key]; var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='▶';b.classList.remove('run');b.title='Iniciar';} }
-  else{
-    TIME_TIMERS[key]=setInterval(function(){ if(!TIME[tab][i]){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];return;} TIME[tab][i].seconds=(+TIME[tab][i].seconds||0)+1; var t=document.getElementById('ttime_'+key); if(t)t.textContent=fmtHMS(TIME[tab][i].seconds); },1000);
-    var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='⏸';b.classList.add('run');b.title='Pausar';}
-  }
+  var key=tab+'_'+i, r=TIME[tab][i]; if(!r) return;
+  if(TIME_TIMERS[key]){ clearInterval(TIME_TIMERS[key]); delete TIME_TIMERS[key]; var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='▶';b.classList.remove('run');b.title='Iniciar';} var t0=document.getElementById('ttime_'+key); if(t0)t0.classList.remove('run'); return; }
+  if(r.left==null) r.left=parseDur(r.tiempo);
+  if(r.left<=0){ toast('Escribí primero un tiempo (ej: 45 min)'); return; }
+  TIME_TIMERS[key]=setInterval(function(){
+    var rr=TIME[tab][i]; if(!rr){clearInterval(TIME_TIMERS[key]);delete TIME_TIMERS[key];return;}
+    rr.left=Math.max(0,(+rr.left||0)-1);
+    var t=document.getElementById('ttime_'+key); if(t)t.textContent=fmtHMS(rr.left);
+    if(rr.left<=0){ clearInterval(TIME_TIMERS[key]); delete TIME_TIMERS[key]; if(t){t.classList.add('done');t.classList.remove('run');} var bb=document.getElementById('ttbtn_'+key); if(bb){bb.textContent='▶';bb.classList.remove('run');bb.title='Iniciar';} tiempoBeep(); }
+  },1000);
+  var b=document.getElementById('ttbtn_'+key); if(b){b.textContent='⏸';b.classList.add('run');b.title='Pausar';} var t1=document.getElementById('ttime_'+key); if(t1){t1.classList.add('run');t1.classList.remove('done');}
 }
 
 // ─── Desarrollo de producto ───
@@ -1045,8 +1079,8 @@ async function saveDev(){
   scrSyncVars();
   data.scr_variaciones = SCR_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
   // Tiempo de desarrollo (tareas + cronómetro)
-  data.tiempo_pagina = TIME.pagina.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0}));
-  data.tiempo_anuncios = TIME.anuncios.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',seconds:+r.seconds||0}));
+  data.tiempo_pagina = TIME.pagina.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',left:+r.left||0}));
+  data.tiempo_anuncios = TIME.anuncios.map(r=>({tarea:r.tarea||'',tiempo:r.tiempo||'',left:+r.left||0}));
   const msg=$('#dev-msg'); if(msg){msg.className='msg';msg.textContent='Guardando…';}
   try{
     const r=await fetch(API+'/'+encodeURIComponent(DEV_CUR),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})});

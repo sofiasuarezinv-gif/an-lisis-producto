@@ -1326,8 +1326,16 @@ async function saveDev(){
 
 // ─── Reporte de testeos (por semana lun–dom, dentro del mes) ───
 // ─── Optimización de tiempo (4ª pestaña: gráfica por producto: real vs estimado) ───
-async function loadOptim(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} renderOptim(); }
-function optSums(p,key){ var arr=Array.isArray(p[key])?p[key]:[]; return { est:arr.reduce((s,r)=>s+parseDur(r.tiempo),0), real:arr.reduce((s,r)=>s+parseDur(r.real),0) }; }
+async function loadOptim(){ try{ const r=await fetch(API); PRODUCTS=await r.json(); }catch(e){} await loadTiempoTpl(); renderOptim(); }
+function optSums(p,key){
+  var raw=p[key], tab=key.replace('tiempo_',''), real=0, est=0;
+  if(Array.isArray(raw)){ raw.forEach(function(r){ real+=parseDur(r.real); est+=parseDur(r.tiempo); }); } // formato viejo (array con tarea/tiempo)
+  else if(raw&&typeof raw==='object'){ // formato nuevo: progreso {id:{real,left,done}} por producto; estimado desde el template global
+    Object.keys(raw).forEach(function(id){ real+=parseDur((raw[id]||{}).real); });
+    (TIME_TPL[tab]||[]).forEach(function(t){ est+=parseDur(t.tiempo); });
+  }
+  return { est:est, real:real };
+}
 function optChart(title,key){
   var items=PRODUCTS.map(function(p){ var s=optSums(p,key); return {nombre:p.nombre||'(sin nombre)', est:s.est, real:s.real}; }).filter(x=>x.real>0||x.est>0);
   if(!items.length) return `<div class="optsec"><div class="opt-h">${title}</div><div class="empty" style="padding:22px">Todavía no hay tiempos registrados. Llená el "tiempo real" de cada tarea en Desarrollo de producto → ⏱️ Tiempo de desarrollo.</div></div>`;

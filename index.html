@@ -737,9 +737,11 @@ function prodSub(which){
 function prodPanel(which){
   $('#prodpanel-pagina').style.display = which==='pagina'?'':'none';
   $('#prodpanel-anuncios').style.display = which==='anuncios'?'':'none';
+  var cp=$('#prodpanel-captions'); if(cp) cp.style.display = which==='captions'?'':'none';
   var tp=$('#prodpanel-tiempo'); if(tp) tp.style.display = which==='tiempo'?'':'none';
   $('#prod-pagina').classList.toggle('active',which==='pagina');
   $('#prod-anuncios').classList.toggle('active',which==='anuncios');
+  var ct=$('#prod-captions'); if(ct) ct.classList.toggle('active',which==='captions');
   var tt=$('#prod-tiempo'); if(tt) tt.classList.toggle('active',which==='tiempo');
 }
 
@@ -1175,6 +1177,8 @@ async function openDevEditor(pid){
   };
   SCR_VARS = Array.isArray(p.scr_variaciones) ? JSON.parse(JSON.stringify(p.scr_variaciones)) : [];
   SCR_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
+  CAP_VARS = Array.isArray(p.cap_variaciones) ? JSON.parse(JSON.stringify(p.cap_variaciones)) : [];
+  CAP_VARS.forEach(g=>{ if(!Array.isArray(g.rows)||!g.rows.length) g.rows=['']; });
   stopAllTimers();
   initDevBlocks(p);
   initTiempo(p);
@@ -1189,6 +1193,7 @@ async function openDevEditor(pid){
   <div class="subtabs">
     <div class="subtab active" id="prod-pagina" onclick="prodPanel('pagina')">📄 Página</div>
     <div class="subtab" id="prod-anuncios" onclick="prodPanel('anuncios')">📣 Anuncios</div>
+    <div class="subtab" id="prod-captions" onclick="prodPanel('captions')">✍️ Captions</div>
     <div class="subtab" id="prod-tiempo" onclick="prodPanel('tiempo')">⏱️ Tiempo de desarrollo</div>
   </div>
   <div id="prodpanel-pagina">
@@ -1234,6 +1239,28 @@ async function openDevEditor(pid){
       <button class="btn ghost" type="button" onclick="scrAddGroup()" style="margin-top:4px">➕ Agregar variación de un script</button>
     </div>
   </div>
+  <div id="prodpanel-captions" style="display:none">
+    <div class="subtabs">
+      <div class="subtab active" id="capsub-cats" onclick="capSub('cats')">✍️ Captions</div>
+      <div class="subtab" id="capsub-vars" onclick="capSub('vars')">🔀 Variaciones</div>
+    </div>
+    <div id="cappanel-cats">
+      <div class="subtabs mini">`+
+        SCR_CATS.map((c,i)=>`<div class="subtab ${i===0?'active':''}" id="capcat-${c.key}" onclick="capCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`
+      </div>
+      <div class="devpanel">`+
+        SCR_CATS.map((c,i)=>`<div class="scr-catpanel" id="capcp-${c.key}" style="display:${i===0?'block':'none'}">
+          <div class="devblock">
+            <div class="devblock-h"><span>${c.icon} Caption ${c.label.toLowerCase()}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('s_cap_${c.key}')">📋</button></div>
+            <textarea id="s_cap_${c.key}" style="min-height:150px" placeholder="Pegá acá el caption ${c.label.toLowerCase()}…">${esc(p['cap_'+c.key]||'')}</textarea>
+          </div>
+        </div>`).join('')+`</div>
+    </div>
+    <div id="cappanel-vars" style="display:none">
+      <div id="cap-vars-list"></div>
+      <button class="btn ghost" type="button" onclick="capAddGroup()" style="margin-top:4px">➕ Agregar variación de un caption</button>
+    </div>
+  </div>
   <div id="prodpanel-tiempo" style="display:none">
     <div class="subtabs mini">
       <div class="subtab active" id="tsub-pagina" onclick="tiempoSub('pagina')">📄 Página</div>
@@ -1245,6 +1272,7 @@ async function openDevEditor(pid){
   <div class="actions"><button class="btn" type="button" onclick="saveDev()">💾 Guardar</button><span class="msg" id="dev-msg"></span></div>`;
   $('#dev-editor').innerHTML=html;
   renderScrVars();
+  renderCapVars();
   angInit(p,'scr-ang-list',true);
   renderTiempo('pagina'); renderTiempo('anuncios');
   updateProgress(); applyDevFilter(); updateCopySel();
@@ -1274,6 +1302,10 @@ async function saveDev(){
   data.scr_estado = data.dev_estado;
   scrSyncVars();
   data.scr_variaciones = SCR_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
+  // Captions (mismas 5 categorías, datos propios cap_*)
+  SCR_CATS.forEach(c=>{ const el=document.getElementById('s_cap_'+c.key); if(el) data['cap_'+c.key]=el.value.trim(); });
+  capSyncVars();
+  data.cap_variaciones = CAP_VARS.map(g=>({base:g.base, rows:g.rows.map(r=>String(r||'').trim()).filter(r=>r)})).filter(g=>g.rows.length);
   // Tiempo de desarrollo: SOLO el progreso por producto (la lista de tareas vive en el template global)
   const progOf=arr=>{ var o={}; (arr||[]).forEach(r=>{ if(r.id) o[r.id]={real:r.real||'',done:!!r.done,left:+r.left||0}; }); return o; };
   data.tiempo_pagina = progOf(TIME.pagina);
@@ -1394,6 +1426,7 @@ const SCR_CATS = [
 const SCR_STATUS_TXT={'':'Sin empezar','en_curso':'En curso','completado':'Completado'};
 let SCR_CUR=null;
 let SCR_VARS=[];   // [{base:'emocional', rows:['','']}]
+let CAP_VARS=[];   // Captions: mismas 5 categorías, variaciones propias (cap_variaciones)
 
 function scrBadge(p){
   const s=(p&&p.scr_estado)||'';
@@ -1521,6 +1554,57 @@ function scrDelRow(gi,ri){ scrSyncVars(); SCR_VARS[gi].rows.splice(ri,1); if(!SC
 function scrChangeBase(gi){ scrSyncVars(); const el=document.getElementById('scrv_basetxt_'+gi); if(el) el.textContent=scrCurScriptText(SCR_VARS[gi].base)||'(este script está vacío — escribilo en "Scripts de testeos")'; }
 function scrBaseChanged(dd){ const gi=+dd.id.split('_').pop(); scrChangeBase(gi); }
 function scrCopy(id){ const el=document.getElementById(id); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+// ─── Captions (misma lógica que scripts de Anuncios, datos cap_*) ───
+function capSub(which){
+  $('#cappanel-cats').style.display = which==='cats'?'':'none';
+  $('#cappanel-vars').style.display = which==='vars'?'':'none';
+  $('#capsub-cats').classList.toggle('active',which==='cats');
+  $('#capsub-vars').classList.toggle('active',which==='vars');
+  if(which==='vars') renderCapVars();
+}
+function capCat(key){
+  SCR_CATS.forEach(c=>{
+    const cp=document.getElementById('capcp-'+c.key); if(cp) cp.style.display = c.key===key?'block':'none';
+    const tab=document.getElementById('capcat-'+c.key); if(tab) tab.classList.toggle('active',c.key===key);
+  });
+}
+function capCurText(catKey){ const el=document.getElementById('s_cap_'+catKey); return el?el.value:''; }
+function capSyncVars(){
+  CAP_VARS.forEach((g,gi)=>{
+    const b=document.getElementById('capv_base_'+gi); if(b) g.base=b.dataset.value;
+    g.rows=g.rows.map((_,ri)=>{ const t=document.getElementById('capv_row_'+gi+'_'+ri); return t?t.value:''; });
+  });
+}
+function renderCapVars(){
+  const box=$('#cap-vars-list'); if(!box) return;
+  if(!CAP_VARS.length){ box.innerHTML=`<div class="empty" style="padding:26px"><div class="big">🔀</div>Todavía no hay variaciones.<br>Elegí un caption base y agregá las variaciones que quieras.</div>`; return; }
+  box.innerHTML=CAP_VARS.map((g,gi)=>{
+    const baseDD=ddHtml('capv_base_'+gi, g.base, SCR_CATS.map(c=>({val:c.key,label:c.icon+' '+c.label})), 'capBaseChanged');
+    const baseTxt=esc(capCurText(g.base)||'(este caption está vacío — escribilo en "Captions")');
+    const rows=g.rows.map((v,ri)=>`
+      <div class="scr-varrow">
+        <span class="scr-varnum">${ri+1}</span>
+        <textarea id="capv_row_${gi}_${ri}" placeholder="Variación ${ri+1}…">${esc(v)}</textarea>
+        <button class="cpy" type="button" title="Copiar" onclick="scrCopy('capv_row_${gi}_${ri}')">📋</button>
+        <button class="cpy" type="button" title="Quitar fila" onclick="capDelRow(${gi},${ri})">🗑️</button>
+      </div>`).join('');
+    return `<div class="scr-vargroup">
+      <div class="scr-vargroup-h">
+        <span style="font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:7px">Caption base:${baseDD}</span>
+        <button class="cpy" type="button" title="Quitar esta variación" onclick="capDelGroup(${gi})" style="margin-left:auto">✕</button>
+      </div>
+      <div class="scr-basetxt" id="capv_basetxt_${gi}">${baseTxt}</div>
+      ${rows}
+      <button class="btn ghost" type="button" onclick="capAddRow(${gi})" style="margin-top:6px;padding:8px 14px;font-size:13px">➕ Agregar fila</button>
+    </div>`;
+  }).join('');
+}
+function capAddGroup(){ capSyncVars(); CAP_VARS.push({base:SCR_CATS[0].key, rows:['']}); renderCapVars(); }
+function capDelGroup(gi){ capSyncVars(); CAP_VARS.splice(gi,1); renderCapVars(); }
+function capAddRow(gi){ capSyncVars(); CAP_VARS[gi].rows.push(''); renderCapVars(); }
+function capDelRow(gi,ri){ capSyncVars(); CAP_VARS[gi].rows.splice(ri,1); if(!CAP_VARS[gi].rows.length) CAP_VARS[gi].rows.push(''); renderCapVars(); }
+function capChangeBase(gi){ capSyncVars(); const el=document.getElementById('capv_basetxt_'+gi); if(el) el.textContent=capCurText(CAP_VARS[gi].base)||'(este caption está vacío — escribilo en "Captions")'; }
+function capBaseChanged(dd){ const gi=+dd.id.split('_').pop(); capChangeBase(gi); }
 async function saveScr(){
   if(!SCR_CUR) return;
   const p=PRODUCTS.find(x=>x.pid===SCR_CUR); if(!p) return;

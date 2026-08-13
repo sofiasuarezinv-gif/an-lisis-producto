@@ -552,7 +552,92 @@ function buildForm(pref, data){
       <div class="sec-h closed" onclick="toggleSec(this)">${s.icon} ${s.title}<span class="chev">▾</span></div>
       <div class="sec-b hide"><div class="grid">${s.fields.map(f=>fieldHtml(f, data[f.key], pref)).join('')}</div></div>
     </div>`).join('');
+  // ── Insumos (videos e imágenes: archivos o links) ──
+  INS_STATE[pref] = Array.isArray(data.insumos) ? data.insumos.map(x=>({...x})) : [];
+  html += `
+    <div class="card" style="margin:0;border-radius:0 0 16px 16px;border-top:1px solid var(--line)">
+      <div class="sec-h closed" onclick="toggleSec(this)">📎 Insumos<span class="chev">▾</span></div>
+      <div class="sec-b hide">
+        <p style="color:var(--sub);font-size:12px;margin:0 0 12px">Adjuntá <b>videos</b> e <b>imágenes</b>: subí archivos o pegá links (Drive, YouTube, etc.). Se guardan con el producto.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+          <button type="button" class="btn ghost" onclick="insAddLink('${pref}')">🔗 Pegar link</button>
+          <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insimg').click()">🖼️ Subir imagen</button>
+          <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insvid').click()">🎬 Subir video</button>
+          <input type="file" id="${pref}insimg" accept="image/*" multiple style="display:none" onchange="insUploadImg(event,'${pref}')">
+          <input type="file" id="${pref}insvid" accept="video/*" style="display:none" onchange="insUploadVideo(event,'${pref}')">
+        </div>
+        <div id="${pref}inslist">${insListHtml(pref)}</div>
+      </div>
+    </div>`;
   return html;
+}
+
+// ─── Insumos: galería de videos/imágenes por producto ───
+const INS_STATE = {};
+function insListHtml(pref){
+  const arr = INS_STATE[pref] || [];
+  if(!arr.length) return '<div style="color:var(--sub);font-size:13px;padding:6px 0 2px">Todavía no hay insumos. Agregá videos o imágenes con los botones de arriba.</div>';
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">${arr.map((it,i)=>insItemHtml(pref,it,i)).join('')}</div>`;
+}
+function insEmbed(url){
+  const u=String(url||''); let m;
+  if((m=u.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/))) return `<iframe src="https://www.youtube.com/embed/${m[1]}" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
+  if((m=u.match(/vimeo\.com\/(\d+)/))) return `<iframe src="https://player.vimeo.com/video/${m[1]}" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
+  if((m=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/))) return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
+  if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u) || u.startsWith('data:video')) return `<video src="${esc(u)}" controls style="width:100%;height:130px;border-radius:8px;background:#000"></video>`;
+  return null;
+}
+function insItemHtml(pref,it,idx){
+  let media;
+  if(it.tipo==='imagen'){
+    media = `<img src="${esc(it.src)}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${esc(it.src)}','_blank')">`;
+  } else if(it.tipo==='video'){
+    media = insEmbed(it.src) || `<div style="height:130px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:8px"><a href="${esc(it.src)}" target="_blank" style="color:var(--brand2)">🎬 Ver video</a></div>`;
+  } else {
+    media = `<div style="height:130px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:8px;padding:8px;text-align:center"><a href="${esc(it.src)}" target="_blank" style="color:var(--brand2);word-break:break-all;font-size:12px">🔗 ${esc(it.src && it.src.length>44?it.src.slice(0,44)+'…':it.src)}</a></div>`;
+  }
+  return `<div style="border:1px solid var(--line);border-radius:10px;padding:8px;background:rgba(255,255,255,.03)">
+    ${media}
+    <input type="text" placeholder="Nota (opcional)" value="${esc(it.nota||'')}" oninput="insNote('${pref}',${idx},this.value)" style="width:100%;margin-top:7px;font-size:12px">
+    <button type="button" class="btn danger" style="width:100%;margin-top:7px;padding:5px;font-size:12px" onclick="insDel('${pref}',${idx})">🗑️ Quitar</button>
+  </div>`;
+}
+function insRender(pref){ const el=document.getElementById(pref+'inslist'); if(el) el.innerHTML=insListHtml(pref); }
+function insDel(pref,idx){ if(INS_STATE[pref]){ INS_STATE[pref].splice(idx,1); insRender(pref); } }
+function insNote(pref,idx,v){ if(INS_STATE[pref]&&INS_STATE[pref][idx]) INS_STATE[pref][idx].nota=v; }
+function insAddLink(pref){
+  const url=prompt('Pegá el link del video o imagen (Drive, YouTube, .jpg, .mp4, etc.):'); if(!url) return;
+  const u=url.trim(); if(!u) return;
+  let tipo='link';
+  if(/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(u)) tipo='imagen';
+  else if(/youtube|youtu\.be|vimeo|drive\.google|\.(mp4|webm|mov|m4v)(\?|$)/i.test(u)) tipo='video';
+  (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo,src:u,nota:''});
+  insRender(pref);
+}
+function insUploadImg(ev,pref){
+  const files=[...ev.target.files]; if(!files.length) return;
+  files.forEach(file=>{
+    const img=new Image(), rd=new FileReader();
+    rd.onload=e=>{ img.onload=()=>{
+      const max=1200; let w=img.width,h=img.height;
+      if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;} else {w=Math.round(w*max/h);h=max;} }
+      const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
+      (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo:'imagen',src:c.toDataURL('image/jpeg',0.72),nota:''});
+      insRender(pref);
+    }; img.src=e.target.result; };
+    rd.readAsDataURL(file);
+  });
+  ev.target.value='';
+}
+function insUploadVideo(ev,pref){
+  const file=ev.target.files[0]; if(!file) return;
+  const mb=file.size/1048576;
+  if(mb>15){ alert('El video pesa '+mb.toFixed(1)+' MB — muy pesado para guardarlo aquí. Mejor subilo a Drive/YouTube y pegá el link con "🔗 Pegar link".'); ev.target.value=''; return; }
+  if(mb>6 && !confirm('El video pesa '+mb.toFixed(1)+' MB. Guardarlo aquí puede poner lento el dashboard. ¿Continuar igual? (recomendado: usar un link)')){ ev.target.value=''; return; }
+  const rd=new FileReader();
+  rd.onload=e=>{ (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo:'video',src:e.target.result,nota:''}); insRender(pref); };
+  rd.readAsDataURL(file);
+  ev.target.value='';
 }
 function toggleSec(h){ h.classList.toggle('closed'); h.nextElementSibling.classList.toggle('hide'); }
 
@@ -618,6 +703,7 @@ function collect(pref){
   });
   ['fecha','fecha_pauta','fecha_testeo'].forEach(k=>{ const el=document.getElementById(pref+k); if(el) o[k]=el.value.trim(); });
   o.testeado = o.fecha_testeo ? 'si' : '';
+  o.insumos = (INS_STATE[pref] || []).slice();
   return o;
 }
 function markMissing(pref, data){

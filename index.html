@@ -47,6 +47,10 @@
   .field textarea{min-height:64px;resize:vertical;line-height:1.45}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
   .field.miss input,.field.miss select{border-color:var(--red)}
+  /* Inputs de tableros/insumos (fuera de .field) → mismo look oscuro */
+  #posgrid input,#invgrid input,[id$="inslist"] input,[id$="inslinktext"]{background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 13.5px "Inter";outline:none}
+  #posgrid input::placeholder,#invgrid input::placeholder,[id$="inslist"] input::placeholder,[id$="inslinktext"]::placeholder{color:var(--sub)}
+  #posgrid input:focus,#invgrid input:focus,[id$="inslist"] input:focus,[id$="inslinktext"]:focus{border-color:var(--brand)}
 
   .mand{background:linear-gradient(160deg,rgba(124,92,255,.10),rgba(18,20,31,.4));border-color:var(--brand)}
   .mand .sec-h{color:var(--brand2)}

@@ -892,6 +892,36 @@ function prodSub(which){
 // ─── Posibles productos / Productos a investigar (tableros ligeros, guardado permanente) ───
 let POSIBLES=[], INVEST=[], _activeSub='lista', _pTimers={};
 const POS_FIELDS=[['nombre','Nombre'],['id_prod','ID'],['precio','Precio'],['competidores','Competidores'],['cant_prov','Cantidad proveedores']];
+// Modal para ver la imagen completa + info
+function mediaModal(src,title,infoHtml){
+  let ov=document.getElementById('mediamodal');
+  if(!ov){ ov=document.createElement('div'); ov.id='mediamodal'; document.body.appendChild(ov); }
+  ov.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99998" onclick="mediaClose()"></div>
+    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--bg2,#161a2b);border:1px solid var(--line);border-radius:16px;width:min(560px,94vw);max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2,#161a2b);z-index:1">
+        <span style="font-weight:700;font-size:15px;color:var(--ink)">${esc(title||'')}</span>
+        <button type="button" class="btn ghost" onclick="mediaClose()" style="padding:5px 12px">✕ Cerrar</button>
+      </div>
+      <div style="padding:16px 18px">
+        <img src="${src}" style="width:100%;border-radius:12px;background:#000;display:block">
+        ${infoHtml?`<div style="margin-top:15px">${infoHtml}</div>`:''}
+      </div>
+    </div>`;
+  ov.style.display='block';
+}
+function mediaClose(){ const m=document.getElementById('mediamodal'); if(m) m.remove(); }
+function invOpenImg(pid){ const p=INVEST.find(x=>x.pid===pid); if(!p||!p.foto) return;
+  const info = p.nota ? `<div style="font-size:13.5px;color:var(--ink);white-space:pre-wrap;line-height:1.6"><div style="color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</div>${esc(p.nota)}</div>` : '<div style="color:var(--sub);font-size:13px">Sin notas.</div>';
+  mediaModal(p.foto, 'Producto a investigar', info);
+}
+function posOpenImg(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p||!p.foto) return;
+  const rows=[['Nombre',p.nombre],['ID',p.id_prod],['Precio',p.precio],['Competidores',p.competidores],['Cantidad proveedores',p.cant_prov]].filter(r=>r[1]&&String(r[1]).trim());
+  let info='';
+  if(rows.length) info+='<div style="display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-size:13.5px;align-items:baseline">'+rows.map(r=>`<div style="color:var(--muted);font-weight:600">${r[0]}</div><div style="color:var(--ink);font-weight:600">${esc(r[1])}</div>`).join('')+'</div>';
+  if(p.nota) info+=`<div style="margin-top:14px;font-size:13.5px;color:var(--ink);white-space:pre-wrap;line-height:1.6"><div style="color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</div>${esc(p.nota)}</div>`;
+  if(!info) info='<div style="color:var(--sub);font-size:13px">Sin datos cargados todavía.</div>';
+  mediaModal(p.foto, p.nombre||'Posible producto', info);
+}
 // blob/File → dataURL comprimido (JPEG ~1200px)
 function _imgData(blob, cb){
   const img=new Image(), url=URL.createObjectURL(blob);
@@ -922,7 +952,7 @@ function renderPosibles(){
     return `
     <div class="card" style="padding:12px;margin:0;${cardStyle}">
       <div style="position:relative;margin-bottom:9px">
-        <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" title="${p.foto?'Ver imagen completa':''}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
+        <div onclick="${p.foto?`posOpenImg('${p.pid}')`:''}" title="${p.foto?'Ver imagen y datos':''}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
           ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br><span style="opacity:.7">abrí y pegá</span></span>'}
         </div>
         ${corner}
@@ -980,7 +1010,7 @@ function renderInvest(){
   if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">${INVEST.map(p=>`
     <div class="card" style="padding:10px;margin:0">
-      <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:9px">
+      <div onclick="${p.foto?`invOpenImg('${p.pid}')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:9px">
         ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
       </div>
       <div style="display:flex;gap:6px;margin-bottom:8px">

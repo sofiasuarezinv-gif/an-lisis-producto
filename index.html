@@ -885,39 +885,45 @@ async function _readClipImg(){
 }
 async function loadPosibles(){ try{ POSIBLES=await fetch('/api/posibles').then(r=>r.json()); if(!Array.isArray(POSIBLES)) POSIBLES=[]; }catch(e){ POSIBLES=[]; } renderPosibles(); }
 async function loadInvest(){ try{ INVEST=await fetch('/api/investigar').then(r=>r.json()); if(!Array.isArray(INVEST)) INVEST=[]; }catch(e){ INVEST=[]; } renderInvest(); }
-let _posExpanded=new Set();
+let _posOpen=null;
 const _DKIN='width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 12.5px "Inter";outline:none';
 function renderPosibles(){
   const g=$('#posgrid'); if(!g) return;
-  if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible" y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">${POSIBLES.map(p=>{
-    const open=_posExpanded.has(p.pid), est=p.estado||'';
-    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.55':'');
-    const badge = est==='aprobado' ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:var(--green);margin-bottom:7px">✅ Aprobado</span>'
-                 : est==='descartado' ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:var(--red);margin-bottom:7px">🚫 Descartado</span>' : '';
+  if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible", abrí la tarjeta y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;align-items:start">${POSIBLES.map(p=>{
+    const open=(_posOpen===p.pid), est=p.estado||'';
+    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':'');
+    const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
+                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>' : '';
     const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
     const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
     return `
     <div class="card" style="padding:12px;margin:0;${cardStyle}">
-      ${badge}
-      <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" title="${p.foto?'Ver imagen completa':'Usá 📋 Pegar o 📁 Subir'}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:10px">
-        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
+      <div style="position:relative;margin-bottom:9px">
+        <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" title="${p.foto?'Ver imagen completa':''}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
+          ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br><span style="opacity:.7">abrí y pegá</span></span>'}
+        </div>
+        ${corner}
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:9px">
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
-        <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
+      <div onclick="posToggle('${p.pid}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 2px">
+        <span style="flex:1;font-weight:600;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre?esc(p.nombre):'<span style="color:var(--sub);font-weight:500">Sin nombre</span>'}</span>
+        <span style="color:var(--sub);font-size:13px">${open?'▲':'▼'}</span>
       </div>
-      <input placeholder="Nombre" value="${esc(p.nombre||'')}" oninput="posEdit('${p.pid}','nombre',this.value)" style="${_DKIN};font-weight:600;font-size:13.5px">
-      <button type="button" class="btn ghost" style="width:100%;padding:6px;font-size:12px;margin-top:9px" id="posbtn_${p.pid}" onclick="posToggle('${p.pid}')">${open?'▲ Ocultar info':'ℹ️ Ver / editar info'}</button>
-      <div style="display:flex;gap:6px;margin-top:7px">
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
-        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
-      </div>
-      <div id="posdet_${p.pid}" style="display:${open?'block':'none'};margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+      <div id="posdet_${p.pid}" style="display:${open?'block':'none'};margin-top:9px;border-top:1px solid var(--line);padding-top:11px">
+        <input placeholder="Nombre" value="${esc(p.nombre||'')}" oninput="posEdit('${p.pid}','nombre',this.value)" style="${_DKIN};font-weight:600;margin-bottom:8px">
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
+          <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
+        </div>
         ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
-        <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px;margin-top:2px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
+        <textarea placeholder="Notas" oninput="posEdit('${p.pid}','nota',this.value)" style="${_DKIN};min-height:56px;resize:vertical;margin-bottom:9px">${esc(p.nota||'')}</textarea>
+        <div style="display:flex;gap:6px;margin-bottom:9px">
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
+          <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
+        </div>
+        <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -928,16 +934,10 @@ async function posEstado(pid,val){
   renderPosibles(); posSave(pid);
   toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':'Estado quitado');
 }
-function posToggle(pid){
-  if(_posExpanded.has(pid)) _posExpanded.delete(pid); else _posExpanded.add(pid);
-  const open=_posExpanded.has(pid);
-  const el=document.getElementById('posdet_'+pid), b=document.getElementById('posbtn_'+pid);
-  if(el) el.style.display=open?'block':'none';
-  if(b) b.textContent=open?'▲ Ocultar info':'ℹ️ Ver / editar info';
-}
+function posToggle(pid){ _posOpen = (_posOpen===pid) ? null : pid; renderPosibles(); }
 async function posSaveNow(pid){ await posSave(pid); toast('✓ Guardado'); }
 async function posAdd(foto){
-  try{ await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); await loadPosibles(); toast('✓ Agregado'); }
+  try{ const r=await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); const o=await r.json().catch(()=>null); await loadPosibles(); if(o&&o.pid){ _posOpen=o.pid; renderPosibles(); } toast('✓ Agregado'); }
   catch(e){ toast('Error: '+e.message); }
 }
 function posEdit(pid,key,val){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; p[key]=val; clearTimeout(_pTimers['p'+pid]); _pTimers['p'+pid]=setTimeout(()=>posSave(pid),700); }

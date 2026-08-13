@@ -887,23 +887,43 @@ async function _readClipImg(){
 }
 async function loadPosibles(){ try{ POSIBLES=await fetch('/api/posibles').then(r=>r.json()); if(!Array.isArray(POSIBLES)) POSIBLES=[]; }catch(e){ POSIBLES=[]; } renderPosibles(); }
 async function loadInvest(){ try{ INVEST=await fetch('/api/investigar').then(r=>r.json()); if(!Array.isArray(INVEST)) INVEST=[]; }catch(e){ INVEST=[]; } renderInvest(); }
+let _posExpanded=new Set();
+const _DKIN='width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 12.5px "Inter";outline:none';
 function renderPosibles(){
   const g=$('#posgrid'); if(!g) return;
   if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible" y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">${POSIBLES.map(p=>`
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">${POSIBLES.map(p=>{
+    const open=_posExpanded.has(p.pid);
+    return `
     <div class="card" style="padding:12px;margin:0">
-      <div onclick="posPaste('${p.pid}')" title="Clic para pegar imagen del portapapeles" style="height:160px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:10px">
+      <div onclick="posPaste('${p.pid}')" title="Clic para pegar imagen del portapapeles" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:10px">
         ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">📋 Clic para<br>pegar imagen</span>'}
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:9px">
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
-        <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
+      <input placeholder="Nombre" value="${esc(p.nombre||'')}" oninput="posEdit('${p.pid}','nombre',this.value)" style="${_DKIN};font-weight:600;font-size:13.5px">
+      <div style="display:flex;gap:6px;margin-top:9px">
+        <button type="button" class="btn ghost" style="flex:1;padding:6px;font-size:12px" id="posbtn_${p.pid}" onclick="posToggle('${p.pid}')">${open?'▲ Ocultar info':'ℹ️ Ver / editar info'}</button>
+        <button type="button" class="btn danger" style="padding:6px 10px;font-size:12px" onclick="posDel('${p.pid}')" title="Quitar">🗑️</button>
       </div>
-      ${POS_FIELDS.map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="width:100%;margin-bottom:6px;font-size:12.5px;padding:7px 9px">`).join('')}
-      <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:3px" onclick="posDel('${p.pid}')">🗑️ Quitar</button>
-    </div>`).join('')}</div>`;
+      <div id="posdet_${p.pid}" style="display:${open?'block':'none'};margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
+        <div style="display:flex;gap:6px;margin-bottom:9px">
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar imagen</button>
+          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
+          <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
+        </div>
+        ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
+        <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px;margin-top:2px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
 }
+function posToggle(pid){
+  if(_posExpanded.has(pid)) _posExpanded.delete(pid); else _posExpanded.add(pid);
+  const open=_posExpanded.has(pid);
+  const el=document.getElementById('posdet_'+pid), b=document.getElementById('posbtn_'+pid);
+  if(el) el.style.display=open?'block':'none';
+  if(b) b.textContent=open?'▲ Ocultar info':'ℹ️ Ver / editar info';
+}
+async function posSaveNow(pid){ await posSave(pid); toast('✓ Guardado'); }
 async function posAdd(foto){
   try{ await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); await loadPosibles(); toast('✓ Agregado'); }
   catch(e){ toast('Error: '+e.message); }
@@ -919,7 +939,7 @@ function renderInvest(){
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">${INVEST.map(p=>`
     <div class="card" style="padding:10px;margin:0">
       <img src="${p.foto}" style="width:100%;height:180px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="window.open('${p.foto}','_blank')">
-      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="width:100%;margin-top:8px;font-size:12.5px;padding:7px 9px">
+      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN};margin-top:8px">
       <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:7px" onclick="invDel('${p.pid}')">🗑️ Quitar</button>
     </div>`).join('')}</div>`;
 }

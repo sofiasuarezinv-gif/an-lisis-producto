@@ -116,6 +116,11 @@ const PAGES = { '/': 'index.html', '/tiendas': 'tiendas.html', '/productos': 'in
 
 const server = http.createServer(async (req, res) => {
   const url = req.url.split('?')[0];
+  // CORS: permitir que otras páginas propias (ej. plantillas dropp) usen esta API
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
   try {
     const mList = url.match(/^\/api\/([a-z0-9_-]+)$/);
     const mItem = url.match(/^\/api\/([a-z0-9_-]+)\/([^/]+)$/);

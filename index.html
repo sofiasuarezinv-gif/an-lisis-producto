@@ -368,10 +368,8 @@
     </div>
     <div id="ppanel-investigar" style="display:none">
       <div class="toolbar">
-        <button class="btn" type="button" onclick="invPaste()">📋 Pegar imagen</button>
-        <button class="btn ghost" type="button" onclick="document.getElementById('invfile').click()">📁 Subir imagen</button>
-        <input type="file" id="invfile" accept="image/*" multiple style="display:none" onchange="invUpload(event)">
-        <span style="font-size:12px;color:var(--sub)">Copiá una imagen (clic derecho → Copiar imagen) y tocá 📋 Pegar, o pegá con Ctrl+V. Se guarda solo.</span>
+        <button class="btn" type="button" onclick="invAddBlank()">➕ Agregar producto</button>
+        <span style="font-size:12px;color:var(--sub)">Agregá un producto y pegá su imagen dentro de la tarjeta (clic derecho → Copiar imagen → 📋 Pegar, o Ctrl+V). Se guarda solo.</span>
       </div>
       <div id="invgrid"></div>
     </div>
@@ -952,11 +950,22 @@ function renderInvest(){
   if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">${INVEST.map(p=>`
     <div class="card" style="padding:10px;margin:0">
-      <img src="${p.foto}" style="width:100%;height:180px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="window.open('${p.foto}','_blank')">
-      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN};margin-top:8px">
+      <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:9px">
+        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="invPasteCard('${p.pid}')">📋 Pegar</button>
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('invf_${p.pid}').click()">📁 Subir</button>
+        <input type="file" id="invf_${p.pid}" accept="image/*" style="display:none" onchange="invUploadCard(event,'${p.pid}')">
+      </div>
+      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN}">
       <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:7px" onclick="invDel('${p.pid}')">🗑️ Quitar</button>
     </div>`).join('')}</div>`;
 }
+async function invAddBlank(){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:'',nota:''}})}); await loadInvest(); toast('✓ Producto agregado'); }catch(e){ toast('Error: '+e.message); } }
+function invSetFoto(pid,dataUrl){ const p=INVEST.find(x=>x.pid===pid); if(p){ p.foto=dataUrl; renderInvest(); invSave(pid); toast('✓ Imagen pegada'); } }
+async function invPasteCard(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen).'); return; } _imgData(blob, d=>invSetFoto(pid,d)); }
+function invUploadCard(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>invSetFoto(pid,d)); ev.target.value=''; }
 async function invAdd(foto){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto,nota:''}})}); await loadInvest(); toast('✓ Imagen agregada'); }catch(e){ toast('Error: '+e.message); } }
 async function invPaste(){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>invAdd(d)); }
 function invUpload(ev){ [...ev.target.files].forEach(f=>_imgData(f, d=>invAdd(d))); ev.target.value=''; }

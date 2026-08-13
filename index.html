@@ -335,8 +335,8 @@
   <div id="view-list" style="display:none">
     <div class="subtabs">
       <div class="subtab active" id="psub-lista" onclick="prodSub('lista')">📦 Lista</div>
-      <div class="subtab" id="psub-posibles" onclick="prodSub('posibles')">💡 Posibles productos</div>
-      <div class="subtab" id="psub-invest" onclick="prodSub('investigar')">🔍 Productos a investigar</div>
+      <div class="subtab" id="psub-posibles" onclick="prodSub('posibles')">💡 Posible productos <span style="font-size:9px;font-weight:500;opacity:.6">(productos que hay en Dropi)</span></div>
+      <div class="subtab" id="psub-invest" onclick="prodSub('investigar')">🔍 Productos a investigar <span style="font-size:9px;font-weight:500;opacity:.6">(productos externos)</span></div>
       <div class="subtab" id="psub-add" onclick="prodSub('add')">➕ Agregar producto</div>
     </div>
     <div id="ppanel-lista">
@@ -893,28 +893,42 @@ function renderPosibles(){
   const g=$('#posgrid'); if(!g) return;
   if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible" y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px">${POSIBLES.map(p=>{
-    const open=_posExpanded.has(p.pid);
+    const open=_posExpanded.has(p.pid), est=p.estado||'';
+    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.55':'');
+    const badge = est==='aprobado' ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:var(--green);margin-bottom:7px">✅ Aprobado</span>'
+                 : est==='descartado' ? '<span style="display:inline-block;font-size:11px;font-weight:700;color:var(--red);margin-bottom:7px">🚫 Descartado</span>' : '';
+    const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
+    const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
     return `
-    <div class="card" style="padding:12px;margin:0">
-      <div onclick="posPaste('${p.pid}')" title="Clic para pegar imagen del portapapeles" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:10px">
-        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">📋 Clic para<br>pegar imagen</span>'}
+    <div class="card" style="padding:12px;margin:0;${cardStyle}">
+      ${badge}
+      <div onclick="${p.foto?`window.open('${p.foto}','_blank')`:''}" title="${p.foto?'Ver imagen completa':'Usá 📋 Pegar o 📁 Subir'}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:10px">
+        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:9px">
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
+        <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
       </div>
       <input placeholder="Nombre" value="${esc(p.nombre||'')}" oninput="posEdit('${p.pid}','nombre',this.value)" style="${_DKIN};font-weight:600;font-size:13.5px">
-      <div style="display:flex;gap:6px;margin-top:9px">
-        <button type="button" class="btn ghost" style="flex:1;padding:6px;font-size:12px" id="posbtn_${p.pid}" onclick="posToggle('${p.pid}')">${open?'▲ Ocultar info':'ℹ️ Ver / editar info'}</button>
-        <button type="button" class="btn danger" style="padding:6px 10px;font-size:12px" onclick="posDel('${p.pid}')" title="Quitar">🗑️</button>
+      <button type="button" class="btn ghost" style="width:100%;padding:6px;font-size:12px;margin-top:9px" id="posbtn_${p.pid}" onclick="posToggle('${p.pid}')">${open?'▲ Ocultar info':'ℹ️ Ver / editar info'}</button>
+      <div style="display:flex;gap:6px;margin-top:7px">
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
+        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
       </div>
       <div id="posdet_${p.pid}" style="display:${open?'block':'none'};margin-top:10px;border-top:1px solid var(--line);padding-top:10px">
-        <div style="display:flex;gap:6px;margin-bottom:9px">
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar imagen</button>
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
-          <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
-        </div>
         ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
         <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px;margin-top:2px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
       </div>
     </div>`;
   }).join('')}</div>`;
+}
+async function posEstado(pid,val){
+  const p=POSIBLES.find(x=>x.pid===pid); if(!p) return;
+  p.estado = (p.estado===val) ? '' : val;
+  renderPosibles(); posSave(pid);
+  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':'Estado quitado');
 }
 function posToggle(pid){
   if(_posExpanded.has(pid)) _posExpanded.delete(pid); else _posExpanded.add(pid);

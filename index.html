@@ -362,14 +362,18 @@
     <div id="ppanel-posibles" style="display:none">
       <div class="toolbar">
         <button class="btn" type="button" onclick="posAdd()">➕ Agregar posible</button>
-        <span style="font-size:12px;color:var(--sub)">Pegá la imagen con el botón 📋 de cada tarjeta (o copiá una imagen y hacé Ctrl+V acá). Se guarda solo.</span>
+        <button class="btn ghost" type="button" onclick="document.getElementById('posmulti').click()">🖼️ Agregar imágenes</button>
+        <input type="file" id="posmulti" accept="image/*" multiple style="display:none" onchange="posAddImages(event)">
+        <span style="font-size:12px;color:var(--sub)">"Agregar imágenes" crea una tarjeta por cada imagen. O pegá con el 📋 de cada tarjeta / Ctrl+V. Se guarda solo.</span>
       </div>
       <div id="posgrid"></div>
     </div>
     <div id="ppanel-investigar" style="display:none">
       <div class="toolbar">
         <button class="btn" type="button" onclick="invAddBlank()">➕ Agregar producto</button>
-        <span style="font-size:12px;color:var(--sub)">Agregá un producto y pegá su imagen dentro de la tarjeta (clic derecho → Copiar imagen → 📋 Pegar, o Ctrl+V). Se guarda solo.</span>
+        <button class="btn ghost" type="button" onclick="document.getElementById('invmulti').click()">🖼️ Agregar imágenes</button>
+        <input type="file" id="invmulti" accept="image/*" multiple style="display:none" onchange="invAddImages(event)">
+        <span style="font-size:12px;color:var(--sub)">"Agregar imágenes" crea una tarjeta por cada imagen. O agregá un producto y pegá su imagen (📋 / Ctrl+V). Se guarda solo.</span>
       </div>
       <div id="invgrid"></div>
     </div>
@@ -940,6 +944,13 @@ async function posAdd(foto){
   try{ const r=await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); const o=await r.json().catch(()=>null); await loadPosibles(); if(o&&o.pid){ _posOpen=o.pid; renderPosibles(); } toast('✓ Agregado'); }
   catch(e){ toast('Error: '+e.message); }
 }
+// Varias imágenes → una tarjeta por cada una
+async function posAddImages(ev){
+  const files=[...ev.target.files]; ev.target.value=''; if(!files.length) return;
+  toast('Subiendo '+files.length+' imagen'+(files.length>1?'es':'')+'…');
+  for(const f of files){ const d=await new Promise(res=>_imgData(f,res)); try{ await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:d}})}); }catch(e){} }
+  await loadPosibles(); toast('✓ '+files.length+' producto'+(files.length>1?'s':'')+' agregado'+(files.length>1?'s':''));
+}
 function posEdit(pid,key,val){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; p[key]=val; clearTimeout(_pTimers['p'+pid]); _pTimers['p'+pid]=setTimeout(()=>posSave(pid),700); }
 async function posSave(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
 async function posPaste(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); toast('✓ Imagen pegada'); } }); }
@@ -963,6 +974,12 @@ function renderInvest(){
     </div>`).join('')}</div>`;
 }
 async function invAddBlank(){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:'',nota:''}})}); await loadInvest(); toast('✓ Producto agregado'); }catch(e){ toast('Error: '+e.message); } }
+async function invAddImages(ev){
+  const files=[...ev.target.files]; ev.target.value=''; if(!files.length) return;
+  toast('Subiendo '+files.length+' imagen'+(files.length>1?'es':'')+'…');
+  for(const f of files){ const d=await new Promise(res=>_imgData(f,res)); try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:d,nota:''}})}); }catch(e){} }
+  await loadInvest(); toast('✓ '+files.length+' producto'+(files.length>1?'s':'')+' agregado'+(files.length>1?'s':''));
+}
 function invSetFoto(pid,dataUrl){ const p=INVEST.find(x=>x.pid===pid); if(p){ p.foto=dataUrl; renderInvest(); invSave(pid); toast('✓ Imagen pegada'); } }
 async function invPasteCard(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen).'); return; } _imgData(blob, d=>invSetFoto(pid,d)); }
 function invUploadCard(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>invSetFoto(pid,d)); ev.target.value=''; }

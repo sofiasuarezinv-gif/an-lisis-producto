@@ -559,12 +559,20 @@ function buildForm(pref, data){
       <div class="sec-h closed" onclick="toggleSec(this)">📎 Insumos<span class="chev">▾</span></div>
       <div class="sec-b hide">
         <p style="color:var(--sub);font-size:12px;margin:0 0 12px">Adjuntá <b>videos</b> e <b>imágenes</b>: subí archivos o pegá links (Drive, YouTube, etc.). Se guardan con el producto.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-          <button type="button" class="btn ghost" onclick="insAddLink('${pref}')">🔗 Pegar link</button>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <button type="button" class="btn ghost" onclick="insToggleLinkBox('${pref}')">🔗 Pegar link(s)</button>
           <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insimg').click()">🖼️ Subir imagen</button>
           <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insvid').click()">🎬 Subir video</button>
           <input type="file" id="${pref}insimg" accept="image/*" multiple style="display:none" onchange="insUploadImg(event,'${pref}')">
           <input type="file" id="${pref}insvid" accept="video/*" style="display:none" onchange="insUploadVideo(event,'${pref}')">
+        </div>
+        <div id="${pref}inslinkbox" style="display:none;margin-bottom:14px;border:1px solid var(--line);border-radius:10px;padding:12px;background:rgba(255,255,255,.03)">
+          <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Pegá uno o varios links (uno por línea). Drive, YouTube, .jpg, .mp4…</label>
+          <textarea id="${pref}inslinktext" placeholder="https://drive.google.com/...&#10;https://youtu.be/...&#10;https://...foto.jpg" style="width:100%;min-height:84px;font-size:13px;resize:vertical"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button type="button" class="btn" onclick="insAddLinks('${pref}')">➕ Agregar</button>
+            <button type="button" class="btn ghost" onclick="insToggleLinkBox('${pref}')">Cancelar</button>
+          </div>
         </div>
         <div id="${pref}inslist">${insListHtml(pref)}</div>
       </div>
@@ -605,14 +613,25 @@ function insItemHtml(pref,it,idx){
 function insRender(pref){ const el=document.getElementById(pref+'inslist'); if(el) el.innerHTML=insListHtml(pref); }
 function insDel(pref,idx){ if(INS_STATE[pref]){ INS_STATE[pref].splice(idx,1); insRender(pref); } }
 function insNote(pref,idx,v){ if(INS_STATE[pref]&&INS_STATE[pref][idx]) INS_STATE[pref][idx].nota=v; }
-function insAddLink(pref){
-  const url=prompt('Pegá el link del video o imagen (Drive, YouTube, .jpg, .mp4, etc.):'); if(!url) return;
-  const u=url.trim(); if(!u) return;
-  let tipo='link';
-  if(/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(u)) tipo='imagen';
-  else if(/youtube|youtu\.be|vimeo|drive\.google|\.(mp4|webm|mov|m4v)(\?|$)/i.test(u)) tipo='video';
-  (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo,src:u,nota:''});
-  insRender(pref);
+function insDetectTipo(u){
+  if(/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(u)) return 'imagen';
+  if(/youtube|youtu\.be|vimeo|drive\.google|\.(mp4|webm|mov|m4v)(\?|$)/i.test(u)) return 'video';
+  return 'link';
+}
+function insToggleLinkBox(pref){
+  const b=document.getElementById(pref+'inslinkbox'); if(!b) return;
+  const open=b.style.display!=='none';
+  b.style.display=open?'none':'block';
+  if(!open){ const t=document.getElementById(pref+'inslinktext'); if(t){ t.value=''; t.focus(); } }
+}
+function insAddLinks(pref){
+  const t=document.getElementById(pref+'inslinktext'); if(!t) return;
+  const urls=(t.value||'').split(/[\s,]+/).map(s=>s.trim()).filter(s=>s && (/^https?:\/\//i.test(s) || /\.[a-z]{2,}/i.test(s)));
+  if(!urls.length){ toast('Pegá al menos un link válido'); return; }
+  INS_STATE[pref]=INS_STATE[pref]||[];
+  urls.forEach(u=>{ let url=u; if(!/^https?:\/\//i.test(url)) url='https://'+url; INS_STATE[pref].push({tipo:insDetectTipo(url),src:url,nota:''}); });
+  insRender(pref); insToggleLinkBox(pref);
+  toast('✓ '+urls.length+' insumo'+(urls.length>1?'s':'')+' agregado'+(urls.length>1?'s':''));
 }
 function insUploadImg(ev,pref){
   const files=[...ev.target.files]; if(!files.length) return;

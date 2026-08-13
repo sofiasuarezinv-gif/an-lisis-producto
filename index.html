@@ -523,6 +523,24 @@ const ALLFIELDS = [...MAND, ...SECTIONS.flatMap(s => s.fields)];
 const $ = s => document.querySelector(s);
 const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
+// Confirmación con diseño del dashboard (reemplaza el confirm() nativo de Chrome)
+function askConfirm(msg, okLabel){
+  return new Promise(resolve=>{
+    let ov=document.getElementById('dashconfirm');
+    if(!ov){ ov=document.createElement('div'); ov.id='dashconfirm'; document.body.appendChild(ov); }
+    const done=v=>{ ov.style.display='none'; ov.innerHTML=''; resolve(v); };
+    window._dcYes=()=>done(true); window._dcNo=()=>done(false);
+    ov.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99998" onclick="_dcNo()"></div>
+      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--bg2,#161a2b);border:1px solid var(--line);border-radius:16px;padding:22px 24px;width:min(390px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.55)">
+        <div style="font-size:14.5px;color:var(--ink);margin-bottom:20px;line-height:1.55">${esc(msg)}</div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn ghost" onclick="_dcNo()">Cancelar</button>
+          <button type="button" class="btn danger" onclick="_dcYes()">${esc(okLabel||'Sí, eliminar')}</button>
+        </div>
+      </div>`;
+    ov.style.display='block';
+  });
+}
 function inputHtml(f, val, idpref){
   const id = idpref + f.key; const v = val == null ? '' : val;
   if(f.type==='textarea') return `<textarea id="${id}">${esc(v)}</textarea>`;
@@ -836,7 +854,7 @@ async function guardarEdicion(){
 }
 async function borrar(){
   if(!EDIT_PID) return;
-  if(!confirm('¿Eliminar este producto? No se puede deshacer.')) return;
+  if(!(await askConfirm('¿Eliminar este producto? No se puede deshacer.'))) return;
   try{ await fetch(API+'/'+encodeURIComponent(EDIT_PID),{method:'DELETE'}); await load(); toast('Producto eliminado'); cerrar(); }
   catch(e){ alert('Error al eliminar: '+e.message); }
 }
@@ -873,7 +891,7 @@ function prodSub(which){
 
 // ─── Posibles productos / Productos a investigar (tableros ligeros, guardado permanente) ───
 let POSIBLES=[], INVEST=[], _activeSub='lista', _pTimers={};
-const POS_FIELDS=[['nombre','Nombre'],['id_prod','ID'],['precio','Precio'],['competidores','Competidores'],['cant_prov','Cantidad proveedores'],['precio_prov','Precio proveedor']];
+const POS_FIELDS=[['nombre','Nombre'],['id_prod','ID'],['precio','Precio'],['competidores','Competidores'],['cant_prov','Cantidad proveedores']];
 // blob/File → dataURL comprimido (JPEG ~1200px)
 function _imgData(blob, cb){
   const img=new Image(), url=URL.createObjectURL(blob);
@@ -921,7 +939,7 @@ function renderPosibles(){
           <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
         </div>
         ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
-        <textarea placeholder="Notas" oninput="posEdit('${p.pid}','nota',this.value)" style="${_DKIN};min-height:56px;resize:vertical;margin-bottom:9px">${esc(p.nota||'')}</textarea>
+        <textarea placeholder="Notas" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';posEdit('${p.pid}','nota',this.value)" style="${_DKIN};font:400 13px 'Inter',system-ui,sans-serif;min-height:58px;overflow:hidden;resize:none;margin-bottom:9px">${esc(p.nota||'')}</textarea>
         <div style="display:flex;gap:6px;margin-bottom:9px">
           <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
           <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
@@ -931,6 +949,7 @@ function renderPosibles(){
       </div>
     </div>`;
   }).join('')}</div>`;
+  g.querySelectorAll('textarea').forEach(t=>{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; });
 }
 async function posEstado(pid,val){
   const p=POSIBLES.find(x=>x.pid===pid); if(!p) return;
@@ -955,7 +974,7 @@ function posEdit(pid,key,val){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) ret
 async function posSave(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
 async function posPaste(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); toast('✓ Imagen pegada'); } }); }
 function posUpload(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); } }); ev.target.value=''; }
-async function posDel(pid){ if(!confirm('¿Quitar este posible producto?')) return; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'DELETE'}); await loadPosibles(); }catch(e){} }
+async function posDel(pid){ if(!(await askConfirm('¿Eliminar este posible producto? Se borra del todo (no es lo mismo que descartar).'))) return; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'DELETE'}); await loadPosibles(); toast('Eliminado'); }catch(e){} }
 function renderInvest(){
   const g=$('#invgrid'); if(!g) return;
   if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
@@ -988,7 +1007,7 @@ async function invPaste(){ const blob=await _readClipImg(); if(!blob){ toast('Co
 function invUpload(ev){ [...ev.target.files].forEach(f=>_imgData(f, d=>invAdd(d))); ev.target.value=''; }
 function invEdit(pid,val){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; p.nota=val; clearTimeout(_pTimers['i'+pid]); _pTimers['i'+pid]=setTimeout(()=>invSave(pid),700); }
 async function invSave(pid){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
-async function invDel(pid){ if(!confirm('¿Quitar esta imagen?')) return; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'DELETE'}); await loadInvest(); }catch(e){} }
+async function invDel(pid){ if(!(await askConfirm('¿Eliminar este producto a investigar?'))) return; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'DELETE'}); await loadInvest(); toast('Eliminado'); }catch(e){} }
 // Pegar con Ctrl+V dentro de estas pestañas
 document.addEventListener('paste', ev=>{
   const vl=$('#view-list'); if(!vl || vl.style.display==='none') return;

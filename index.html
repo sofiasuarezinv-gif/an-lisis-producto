@@ -331,6 +331,8 @@
   <div id="view-list" style="display:none">
     <div class="subtabs">
       <div class="subtab active" id="psub-lista" onclick="prodSub('lista')">📦 Lista</div>
+      <div class="subtab" id="psub-posibles" onclick="prodSub('posibles')">💡 Posibles productos</div>
+      <div class="subtab" id="psub-invest" onclick="prodSub('investigar')">🔍 Productos a investigar</div>
       <div class="subtab" id="psub-add" onclick="prodSub('add')">➕ Agregar producto</div>
     </div>
     <div id="ppanel-lista">
@@ -352,6 +354,22 @@
           <p style="color:var(--sub);font-size:12px;margin:10px 0 0">Los campos con <span style="color:var(--brand2)">*</span> son obligatorios. El resto lo podés completar ahora o después (se guarda igual).</p>
         </div>
       </form>
+    </div>
+    <div id="ppanel-posibles" style="display:none">
+      <div class="toolbar">
+        <button class="btn" type="button" onclick="posAdd()">➕ Agregar posible</button>
+        <span style="font-size:12px;color:var(--sub)">Pegá la imagen con el botón 📋 de cada tarjeta (o copiá una imagen y hacé Ctrl+V acá). Se guarda solo.</span>
+      </div>
+      <div id="posgrid"></div>
+    </div>
+    <div id="ppanel-investigar" style="display:none">
+      <div class="toolbar">
+        <button class="btn" type="button" onclick="invPaste()">📋 Pegar imagen</button>
+        <button class="btn ghost" type="button" onclick="document.getElementById('invfile').click()">📁 Subir imagen</button>
+        <input type="file" id="invfile" accept="image/*" multiple style="display:none" onchange="invUpload(event)">
+        <span style="font-size:12px;color:var(--sub)">Copiá una imagen (clic derecho → Copiar imagen) y tocá 📋 Pegar, o pegá con Ctrl+V. Se guarda solo.</span>
+      </div>
+      <div id="invgrid"></div>
     </div>
   </div>
 
@@ -833,12 +851,88 @@ function showTab(t){
   if(t==='optim') loadOptim();
 }
 function prodSub(which){
+  _activeSub = which;
   $('#ppanel-lista').style.display = which==='lista'?'':'none';
   $('#ppanel-add').style.display = which==='add'?'':'none';
+  $('#ppanel-posibles').style.display = which==='posibles'?'':'none';
+  $('#ppanel-investigar').style.display = which==='investigar'?'':'none';
   $('#psub-lista').classList.toggle('active',which==='lista');
   $('#psub-add').classList.toggle('active',which==='add');
+  $('#psub-posibles').classList.toggle('active',which==='posibles');
+  $('#psub-invest').classList.toggle('active',which==='investigar');
   if(which==='lista') load();
+  if(which==='posibles') loadPosibles();
+  if(which==='investigar') loadInvest();
 }
+
+// ─── Posibles productos / Productos a investigar (tableros ligeros, guardado permanente) ───
+let POSIBLES=[], INVEST=[], _activeSub='lista', _pTimers={};
+const POS_FIELDS=[['nombre','Nombre'],['id_prod','ID'],['precio','Precio'],['competidores','Competidores'],['cant_prov','Cantidad proveedores'],['precio_prov','Precio proveedor']];
+// blob/File → dataURL comprimido (JPEG ~1200px)
+function _imgData(blob, cb){
+  const img=new Image(), url=URL.createObjectURL(blob);
+  img.onload=()=>{ let w=img.width,h=img.height,max=1200; if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;} else {w=Math.round(w*max/h);h=max;} }
+    const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); URL.revokeObjectURL(url); cb(c.toDataURL('image/jpeg',0.72)); };
+  img.onerror=()=>{ URL.revokeObjectURL(url); toast('No pude leer la imagen'); };
+  img.src=url;
+}
+// Lee una imagen del portapapeles (clic derecho → Copiar imagen)
+async function _readClipImg(){
+  try{ const items=await navigator.clipboard.read(); for(const it of items){ const t=it.types.find(x=>x.startsWith('image/')); if(t) return await it.getType(t); } }catch(e){}
+  return null;
+}
+async function loadPosibles(){ try{ POSIBLES=await fetch('/api/posibles').then(r=>r.json()); if(!Array.isArray(POSIBLES)) POSIBLES=[]; }catch(e){ POSIBLES=[]; } renderPosibles(); }
+async function loadInvest(){ try{ INVEST=await fetch('/api/investigar').then(r=>r.json()); if(!Array.isArray(INVEST)) INVEST=[]; }catch(e){ INVEST=[]; } renderInvest(); }
+function renderPosibles(){
+  const g=$('#posgrid'); if(!g) return;
+  if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible" y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">${POSIBLES.map(p=>`
+    <div class="card" style="padding:12px;margin:0">
+      <div onclick="posPaste('${p.pid}')" title="Clic para pegar imagen del portapapeles" style="height:160px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;margin-bottom:10px">
+        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">📋 Clic para<br>pegar imagen</span>'}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:9px">
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
+        <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
+      </div>
+      ${POS_FIELDS.map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="width:100%;margin-bottom:6px;font-size:12.5px;padding:7px 9px">`).join('')}
+      <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:3px" onclick="posDel('${p.pid}')">🗑️ Quitar</button>
+    </div>`).join('')}</div>`;
+}
+async function posAdd(foto){
+  try{ await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); await loadPosibles(); toast('✓ Agregado'); }
+  catch(e){ toast('Error: '+e.message); }
+}
+function posEdit(pid,key,val){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; p[key]=val; clearTimeout(_pTimers['p'+pid]); _pTimers['p'+pid]=setTimeout(()=>posSave(pid),700); }
+async function posSave(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
+async function posPaste(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); toast('✓ Imagen pegada'); } }); }
+function posUpload(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); } }); ev.target.value=''; }
+async function posDel(pid){ if(!confirm('¿Quitar este posible producto?')) return; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'DELETE'}); await loadPosibles(); }catch(e){} }
+function renderInvest(){
+  const g=$('#invgrid'); if(!g) return;
+  if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">${INVEST.map(p=>`
+    <div class="card" style="padding:10px;margin:0">
+      <img src="${p.foto}" style="width:100%;height:180px;object-fit:cover;border-radius:10px;cursor:pointer" onclick="window.open('${p.foto}','_blank')">
+      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="width:100%;margin-top:8px;font-size:12.5px;padding:7px 9px">
+      <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:7px" onclick="invDel('${p.pid}')">🗑️ Quitar</button>
+    </div>`).join('')}</div>`;
+}
+async function invAdd(foto){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto,nota:''}})}); await loadInvest(); toast('✓ Imagen agregada'); }catch(e){ toast('Error: '+e.message); } }
+async function invPaste(){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>invAdd(d)); }
+function invUpload(ev){ [...ev.target.files].forEach(f=>_imgData(f, d=>invAdd(d))); ev.target.value=''; }
+function invEdit(pid,val){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; p.nota=val; clearTimeout(_pTimers['i'+pid]); _pTimers['i'+pid]=setTimeout(()=>invSave(pid),700); }
+async function invSave(pid){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
+async function invDel(pid){ if(!confirm('¿Quitar esta imagen?')) return; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'DELETE'}); await loadInvest(); }catch(e){} }
+// Pegar con Ctrl+V dentro de estas pestañas
+document.addEventListener('paste', ev=>{
+  const vl=$('#view-list'); if(!vl || vl.style.display==='none') return;
+  if(_activeSub!=='posibles' && _activeSub!=='investigar') return;
+  const tag=(ev.target&&ev.target.tagName)||''; if(tag==='INPUT'||tag==='TEXTAREA') return; // no interferir al escribir
+  const items=(ev.clipboardData&&ev.clipboardData.items)||[];
+  for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const blob=it.getAsFile(); if(blob){ ev.preventDefault(); _imgData(blob, d=>{ _activeSub==='investigar'?invAdd(d):posAdd(d); }); } return; } }
+});
 function prodPanel(which){
   $('#prodpanel-pagina').style.display = which==='pagina'?'':'none';
   $('#prodpanel-anuncios').style.display = which==='anuncios'?'':'none';

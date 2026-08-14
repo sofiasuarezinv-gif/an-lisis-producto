@@ -944,11 +944,13 @@ function renderPosibles(){
   if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible", abrí la tarjeta y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;align-items:start">${POSIBLES.map(p=>{
     const open=(_posOpen===p.pid), est=p.estado||'';
-    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':'');
+    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':(est==='noencontrado'?'border:1.5px solid var(--amber)':''));
     const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
-                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>' : '';
+                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>'
+                 : est==='noencontrado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--amber);color:#3d2a05;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🔎 No encontrado</span>' : '';
     const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
     const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
+    const neStyle = est==='noencontrado' ? 'background:var(--amber);border-color:var(--amber);color:#3d2a05' : '';
     return `
     <div class="card" style="padding:12px;margin:0;${cardStyle}">
       <div style="position:relative;margin-bottom:9px">
@@ -970,10 +972,11 @@ function renderPosibles(){
         </div>
         ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
         <textarea placeholder="Notas" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';posEdit('${p.pid}','nota',this.value)" style="${_DKIN};font:400 13px 'Inter',system-ui,sans-serif;min-height:58px;overflow:hidden;resize:none;margin-bottom:9px">${esc(p.nota||'')}</textarea>
-        <div style="display:flex;gap:6px;margin-bottom:9px">
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
-          <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
+        <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap">
+          <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
+          <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
+          <button type="button" class="btn ghost" style="flex:1;min-width:92px;padding:5px;font-size:11px;${neStyle}" onclick="posEstado('${p.pid}','noencontrado')">🔎 No encontrado</button>
+          <button type="button" class="btn danger" style="padding:5px 10px;font-size:11px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
         </div>
         <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
       </div>
@@ -985,7 +988,7 @@ async function posEstado(pid,val){
   const p=POSIBLES.find(x=>x.pid===pid); if(!p) return;
   p.estado = (p.estado===val) ? '' : val;
   renderPosibles(); posSave(pid);
-  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':'Estado quitado');
+  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':p.estado==='noencontrado'?'🔎 No encontrado':'Estado quitado');
 }
 function posToggle(pid){ _posOpen = (_posOpen===pid) ? null : pid; renderPosibles(); }
 async function posSaveNow(pid){ await posSave(pid); toast('✓ Guardado'); }
@@ -1010,11 +1013,13 @@ function renderInvest(){
   if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
   g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-items:start">${INVEST.map(p=>{
     const est=p.estado||'';
-    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':'');
+    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':(est==='noencontrado'?'border:1.5px solid var(--amber)':''));
     const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
-                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>' : '';
+                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>'
+                 : est==='noencontrado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--amber);color:#3d2a05;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🔎 No encontrado</span>' : '';
     const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
     const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
+    const neStyle = est==='noencontrado' ? 'background:var(--amber);border-color:var(--amber);color:#3d2a05' : '';
     return `
     <div class="card" style="padding:10px;margin:0;${cardStyle}">
       <div style="position:relative;margin-bottom:9px">
@@ -1029,10 +1034,11 @@ function renderInvest(){
         <input type="file" id="invf_${p.pid}" accept="image/*" style="display:none" onchange="invUploadCard(event,'${p.pid}')">
       </div>
       <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN}">
-      <div style="display:flex;gap:6px;margin-top:8px">
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="invEstado('${p.pid}','aprobado')">✅ Aprobar</button>
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="invEstado('${p.pid}','descartado')">🚫 Descartar</button>
-        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="invDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${apStyle}" onclick="invEstado('${p.pid}','aprobado')">✅ Aprobar</button>
+        <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${dsStyle}" onclick="invEstado('${p.pid}','descartado')">🚫 Descartar</button>
+        <button type="button" class="btn ghost" style="flex:1;min-width:92px;padding:5px;font-size:11px;${neStyle}" onclick="invEstado('${p.pid}','noencontrado')">🔎 No encontrado</button>
+        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11px" onclick="invDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
       </div>
     </div>`;
   }).join('')}</div>`;
@@ -1041,7 +1047,7 @@ async function invEstado(pid,val){
   const p=INVEST.find(x=>x.pid===pid); if(!p) return;
   p.estado = (p.estado===val) ? '' : val;
   renderInvest(); invSave(pid);
-  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':'Estado quitado');
+  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':p.estado==='noencontrado'?'🔎 No encontrado':'Estado quitado');
 }
 async function invAddBlank(){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:'',nota:''}})}); await loadInvest(); toast('✓ Producto agregado'); }catch(e){ toast('Error: '+e.message); } }
 async function invAddImages(ev){

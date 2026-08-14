@@ -364,7 +364,7 @@
         <button class="btn" type="button" onclick="posAdd()">➕ Agregar posible</button>
         <button class="btn ghost" type="button" onclick="document.getElementById('posmulti').click()">🖼️ Agregar imágenes</button>
         <input type="file" id="posmulti" accept="image/*" multiple style="display:none" onchange="posAddImages(event)">
-        <span style="font-size:12px;color:var(--sub)">"Agregar imágenes" crea una tarjeta por cada imagen. O pegá con el 📋 de cada tarjeta / Ctrl+V. Se guarda solo.</span>
+        <input id="posq" type="text" placeholder="🔎 Buscar por nombre, ID, nota…" oninput="_posQ=this.value;renderPosibles()" style="flex:1;min-width:180px;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none">
       </div>
       <div id="posgrid"></div>
     </div>
@@ -939,10 +939,14 @@ async function loadPosibles(){ try{ POSIBLES=await fetch('/api/posibles').then(r
 async function loadInvest(){ try{ INVEST=await fetch('/api/investigar').then(r=>r.json()); if(!Array.isArray(INVEST)) INVEST=[]; }catch(e){ INVEST=[]; } renderInvest(); }
 let _posOpen=null;
 const _DKIN='width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 12.5px "Inter";outline:none';
+let _posQ='';
 function renderPosibles(){
   const g=$('#posgrid'); if(!g) return;
   if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible", abrí la tarjeta y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;align-items:start">${POSIBLES.map(p=>{
+  const _q=(_posQ||'').toLowerCase().trim();
+  const LIST = _q ? POSIBLES.filter(p=>[p.nombre,p.id_prod,p.precio,p.competidores,p.cant_prov,p.nota].some(v=>String(v||'').toLowerCase().includes(_q))) : POSIBLES;
+  if(!LIST.length){ g.innerHTML='<div class="empty">Sin resultados para "'+esc(_q)+'".</div>'; return; }
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;align-items:start">${LIST.map(p=>{
     const open=(_posOpen===p.pid), est=p.estado||'';
     const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':(est==='noencontrado'?'border:1.5px solid var(--amber)':''));
     const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'

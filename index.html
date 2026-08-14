@@ -1008,10 +1008,20 @@ async function posDel(pid){ if(!(await askConfirm('¿Eliminar este posible produ
 function renderInvest(){
   const g=$('#invgrid'); if(!g) return;
   if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px">${INVEST.map(p=>`
-    <div class="card" style="padding:10px;margin:0">
-      <div onclick="${p.foto?`invOpenImg('${p.pid}')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden;margin-bottom:9px">
-        ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
+  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-items:start">${INVEST.map(p=>{
+    const est=p.estado||'';
+    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':'');
+    const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
+                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>' : '';
+    const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
+    const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
+    return `
+    <div class="card" style="padding:10px;margin:0;${cardStyle}">
+      <div style="position:relative;margin-bottom:9px">
+        <div onclick="${p.foto?`invOpenImg('${p.pid}')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
+          ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
+        </div>
+        ${corner}
       </div>
       <div style="display:flex;gap:6px;margin-bottom:8px">
         <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="invPasteCard('${p.pid}')">📋 Pegar</button>
@@ -1019,8 +1029,19 @@ function renderInvest(){
         <input type="file" id="invf_${p.pid}" accept="image/*" style="display:none" onchange="invUploadCard(event,'${p.pid}')">
       </div>
       <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN}">
-      <button type="button" class="btn danger" style="width:100%;padding:5px;font-size:12px;margin-top:7px" onclick="invDel('${p.pid}')">🗑️ Quitar</button>
-    </div>`).join('')}</div>`;
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${apStyle}" onclick="invEstado('${p.pid}','aprobado')">✅ Aprobar</button>
+        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:11.5px;${dsStyle}" onclick="invEstado('${p.pid}','descartado')">🚫 Descartar</button>
+        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11.5px" onclick="invDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+async function invEstado(pid,val){
+  const p=INVEST.find(x=>x.pid===pid); if(!p) return;
+  p.estado = (p.estado===val) ? '' : val;
+  renderInvest(); invSave(pid);
+  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':'Estado quitado');
 }
 async function invAddBlank(){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:'',nota:''}})}); await loadInvest(); toast('✓ Producto agregado'); }catch(e){ toast('Error: '+e.message); } }
 async function invAddImages(ev){

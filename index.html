@@ -47,10 +47,6 @@
   .field textarea{min-height:64px;resize:vertical;line-height:1.45}
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--brand)}
   .field.miss input,.field.miss select{border-color:var(--red)}
-  /* Inputs de tableros/insumos (fuera de .field) → mismo look oscuro */
-  #posgrid input,#invgrid input,[id$="inslist"] input,[id$="inslinktext"]{background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 11px;font:500 13.5px "Inter";outline:none}
-  #posgrid input::placeholder,#invgrid input::placeholder,[id$="inslist"] input::placeholder,[id$="inslinktext"]::placeholder{color:var(--sub)}
-  #posgrid input:focus,#invgrid input:focus,[id$="inslist"] input:focus,[id$="inslinktext"]:focus{border-color:var(--brand)}
 
   .mand{background:linear-gradient(160deg,rgba(124,92,255,.10),rgba(18,20,31,.4));border-color:var(--brand)}
   .mand .sec-h{color:var(--brand2)}
@@ -335,8 +331,6 @@
   <div id="view-list" style="display:none">
     <div class="subtabs">
       <div class="subtab active" id="psub-lista" onclick="prodSub('lista')">📦 Lista</div>
-      <div class="subtab" id="psub-posibles" onclick="prodSub('posibles')">💡 Posible productos <span style="font-size:9px;font-weight:500;opacity:.6">(productos que hay en Dropi)</span></div>
-      <div class="subtab" id="psub-invest" onclick="prodSub('investigar')">🔍 Productos a investigar <span style="font-size:9px;font-weight:500;opacity:.6">(productos externos)</span></div>
       <div class="subtab" id="psub-add" onclick="prodSub('add')">➕ Agregar producto</div>
     </div>
     <div id="ppanel-lista">
@@ -358,24 +352,6 @@
           <p style="color:var(--sub);font-size:12px;margin:10px 0 0">Los campos con <span style="color:var(--brand2)">*</span> son obligatorios. El resto lo podés completar ahora o después (se guarda igual).</p>
         </div>
       </form>
-    </div>
-    <div id="ppanel-posibles" style="display:none">
-      <div class="toolbar">
-        <button class="btn" type="button" onclick="posAdd()">➕ Agregar posible</button>
-        <button class="btn ghost" type="button" onclick="document.getElementById('posmulti').click()">🖼️ Agregar imágenes</button>
-        <input type="file" id="posmulti" accept="image/*" multiple style="display:none" onchange="posAddImages(event)">
-        <input id="posq" type="text" placeholder="🔎 Buscar por nombre, ID, nota…" oninput="_posQ=this.value;renderPosibles()" style="flex:1;min-width:180px;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:9px 12px;font-size:13px;outline:none">
-      </div>
-      <div id="posgrid"></div>
-    </div>
-    <div id="ppanel-investigar" style="display:none">
-      <div class="toolbar">
-        <button class="btn" type="button" onclick="invAddBlank()">➕ Agregar producto</button>
-        <button class="btn ghost" type="button" onclick="document.getElementById('invmulti').click()">🖼️ Agregar imágenes</button>
-        <input type="file" id="invmulti" accept="image/*" multiple style="display:none" onchange="invAddImages(event)">
-        <span style="font-size:12px;color:var(--sub)">"Agregar imágenes" crea una tarjeta por cada imagen. O agregá un producto y pegá su imagen (📋 / Ctrl+V). Se guarda solo.</span>
-      </div>
-      <div id="invgrid"></div>
     </div>
   </div>
 
@@ -523,24 +499,6 @@ const ALLFIELDS = [...MAND, ...SECTIONS.flatMap(s => s.fields)];
 const $ = s => document.querySelector(s);
 const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); setTimeout(()=>el.classList.remove('show'),2200); }
-// Confirmación con diseño del dashboard (reemplaza el confirm() nativo de Chrome)
-function askConfirm(msg, okLabel){
-  return new Promise(resolve=>{
-    let ov=document.getElementById('dashconfirm');
-    if(!ov){ ov=document.createElement('div'); ov.id='dashconfirm'; document.body.appendChild(ov); }
-    const done=v=>{ ov.style.display='none'; ov.innerHTML=''; resolve(v); };
-    window._dcYes=()=>done(true); window._dcNo=()=>done(false);
-    ov.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99998" onclick="_dcNo()"></div>
-      <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--bg2,#161a2b);border:1px solid var(--line);border-radius:16px;padding:22px 24px;width:min(390px,92vw);box-shadow:0 20px 60px rgba(0,0,0,.55)">
-        <div style="font-size:14.5px;color:var(--ink);margin-bottom:20px;line-height:1.55">${esc(msg)}</div>
-        <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button type="button" class="btn ghost" onclick="_dcNo()">Cancelar</button>
-          <button type="button" class="btn danger" onclick="_dcYes()">${esc(okLabel||'Sí, eliminar')}</button>
-        </div>
-      </div>`;
-    ov.style.display='block';
-  });
-}
 function inputHtml(f, val, idpref){
   const id = idpref + f.key; const v = val == null ? '' : val;
   if(f.type==='textarea') return `<textarea id="${id}">${esc(v)}</textarea>`;
@@ -594,111 +552,7 @@ function buildForm(pref, data){
       <div class="sec-h closed" onclick="toggleSec(this)">${s.icon} ${s.title}<span class="chev">▾</span></div>
       <div class="sec-b hide"><div class="grid">${s.fields.map(f=>fieldHtml(f, data[f.key], pref)).join('')}</div></div>
     </div>`).join('');
-  // ── Insumos (videos e imágenes: archivos o links) ──
-  INS_STATE[pref] = Array.isArray(data.insumos) ? data.insumos.map(x=>({...x})) : [];
-  html += `
-    <div class="card" style="margin:0;border-radius:0 0 16px 16px;border-top:1px solid var(--line)">
-      <div class="sec-h closed" onclick="toggleSec(this)">📎 Insumos<span class="chev">▾</span></div>
-      <div class="sec-b hide">
-        <p style="color:var(--sub);font-size:12px;margin:0 0 12px">Adjuntá <b>videos</b> e <b>imágenes</b>: subí archivos o pegá links (Drive, YouTube, etc.). Se guardan con el producto.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <button type="button" class="btn ghost" onclick="insToggleLinkBox('${pref}')">🔗 Pegar link(s)</button>
-          <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insimg').click()">🖼️ Subir imagen</button>
-          <button type="button" class="btn ghost" onclick="document.getElementById('${pref}insvid').click()">🎬 Subir video</button>
-          <input type="file" id="${pref}insimg" accept="image/*" multiple style="display:none" onchange="insUploadImg(event,'${pref}')">
-          <input type="file" id="${pref}insvid" accept="video/*" style="display:none" onchange="insUploadVideo(event,'${pref}')">
-        </div>
-        <div id="${pref}inslinkbox" style="display:none;margin-bottom:14px;border:1px solid var(--line);border-radius:10px;padding:12px;background:rgba(255,255,255,.03)">
-          <label style="font-size:12px;color:var(--sub);display:block;margin-bottom:6px">Pegá uno o varios links (uno por línea). Drive, YouTube, .jpg, .mp4…</label>
-          <textarea id="${pref}inslinktext" placeholder="https://drive.google.com/...&#10;https://youtu.be/...&#10;https://...foto.jpg" style="width:100%;min-height:84px;font-size:13px;resize:vertical"></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px">
-            <button type="button" class="btn" onclick="insAddLinks('${pref}')">➕ Agregar</button>
-            <button type="button" class="btn ghost" onclick="insToggleLinkBox('${pref}')">Cancelar</button>
-          </div>
-        </div>
-        <div id="${pref}inslist">${insListHtml(pref)}</div>
-      </div>
-    </div>`;
   return html;
-}
-
-// ─── Insumos: galería de videos/imágenes por producto ───
-const INS_STATE = {};
-function insListHtml(pref){
-  const arr = INS_STATE[pref] || [];
-  if(!arr.length) return '<div style="color:var(--sub);font-size:13px;padding:6px 0 2px">Todavía no hay insumos. Agregá videos o imágenes con los botones de arriba.</div>';
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">${arr.map((it,i)=>insItemHtml(pref,it,i)).join('')}</div>`;
-}
-function insEmbed(url){
-  const u=String(url||''); let m;
-  if((m=u.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]+)/))) return `<iframe src="https://www.youtube.com/embed/${m[1]}" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
-  if((m=u.match(/vimeo\.com\/(\d+)/))) return `<iframe src="https://player.vimeo.com/video/${m[1]}" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
-  if((m=u.match(/drive\.google\.com\/file\/d\/([\w-]+)/))) return `<iframe src="https://drive.google.com/file/d/${m[1]}/preview" style="width:100%;height:130px;border:0;border-radius:8px" allowfullscreen></iframe>`;
-  if(/\.(mp4|webm|mov|m4v)(\?|$)/i.test(u) || u.startsWith('data:video')) return `<video src="${esc(u)}" controls style="width:100%;height:130px;border-radius:8px;background:#000"></video>`;
-  return null;
-}
-function insItemHtml(pref,it,idx){
-  let media;
-  if(it.tipo==='imagen'){
-    media = `<img src="${esc(it.src)}" style="width:100%;height:130px;object-fit:cover;border-radius:8px;cursor:pointer" onclick="window.open('${esc(it.src)}','_blank')">`;
-  } else if(it.tipo==='video'){
-    media = insEmbed(it.src) || `<div style="height:130px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:8px"><a href="${esc(it.src)}" target="_blank" style="color:var(--brand2)">🎬 Ver video</a></div>`;
-  } else {
-    media = `<div style="height:130px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.04);border-radius:8px;padding:8px;text-align:center"><a href="${esc(it.src)}" target="_blank" style="color:var(--brand2);word-break:break-all;font-size:12px">🔗 ${esc(it.src && it.src.length>44?it.src.slice(0,44)+'…':it.src)}</a></div>`;
-  }
-  return `<div style="border:1px solid var(--line);border-radius:10px;padding:8px;background:rgba(255,255,255,.03)">
-    ${media}
-    <input type="text" placeholder="Nota (opcional)" value="${esc(it.nota||'')}" oninput="insNote('${pref}',${idx},this.value)" style="width:100%;margin-top:7px;font-size:12px">
-    <button type="button" class="btn danger" style="width:100%;margin-top:7px;padding:5px;font-size:12px" onclick="insDel('${pref}',${idx})">🗑️ Quitar</button>
-  </div>`;
-}
-function insRender(pref){ const el=document.getElementById(pref+'inslist'); if(el) el.innerHTML=insListHtml(pref); }
-function insDel(pref,idx){ if(INS_STATE[pref]){ INS_STATE[pref].splice(idx,1); insRender(pref); } }
-function insNote(pref,idx,v){ if(INS_STATE[pref]&&INS_STATE[pref][idx]) INS_STATE[pref][idx].nota=v; }
-function insDetectTipo(u){
-  if(/\.(jpg|jpeg|png|gif|webp|avif)(\?|$)/i.test(u)) return 'imagen';
-  if(/youtube|youtu\.be|vimeo|drive\.google|\.(mp4|webm|mov|m4v)(\?|$)/i.test(u)) return 'video';
-  return 'link';
-}
-function insToggleLinkBox(pref){
-  const b=document.getElementById(pref+'inslinkbox'); if(!b) return;
-  const open=b.style.display!=='none';
-  b.style.display=open?'none':'block';
-  if(!open){ const t=document.getElementById(pref+'inslinktext'); if(t){ t.value=''; t.focus(); } }
-}
-function insAddLinks(pref){
-  const t=document.getElementById(pref+'inslinktext'); if(!t) return;
-  const urls=(t.value||'').split(/[\s,]+/).map(s=>s.trim()).filter(s=>s && (/^https?:\/\//i.test(s) || /\.[a-z]{2,}/i.test(s)));
-  if(!urls.length){ toast('Pegá al menos un link válido'); return; }
-  INS_STATE[pref]=INS_STATE[pref]||[];
-  urls.forEach(u=>{ let url=u; if(!/^https?:\/\//i.test(url)) url='https://'+url; INS_STATE[pref].push({tipo:insDetectTipo(url),src:url,nota:''}); });
-  insRender(pref); insToggleLinkBox(pref);
-  toast('✓ '+urls.length+' insumo'+(urls.length>1?'s':'')+' agregado'+(urls.length>1?'s':''));
-}
-function insUploadImg(ev,pref){
-  const files=[...ev.target.files]; if(!files.length) return;
-  files.forEach(file=>{
-    const img=new Image(), rd=new FileReader();
-    rd.onload=e=>{ img.onload=()=>{
-      const max=1200; let w=img.width,h=img.height;
-      if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;} else {w=Math.round(w*max/h);h=max;} }
-      const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h);
-      (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo:'imagen',src:c.toDataURL('image/jpeg',0.72),nota:''});
-      insRender(pref);
-    }; img.src=e.target.result; };
-    rd.readAsDataURL(file);
-  });
-  ev.target.value='';
-}
-function insUploadVideo(ev,pref){
-  const file=ev.target.files[0]; if(!file) return;
-  const mb=file.size/1048576;
-  if(mb>15){ alert('El video pesa '+mb.toFixed(1)+' MB — muy pesado para guardarlo aquí. Mejor subilo a Drive/YouTube y pegá el link con "🔗 Pegar link".'); ev.target.value=''; return; }
-  if(mb>6 && !confirm('El video pesa '+mb.toFixed(1)+' MB. Guardarlo aquí puede poner lento el dashboard. ¿Continuar igual? (recomendado: usar un link)')){ ev.target.value=''; return; }
-  const rd=new FileReader();
-  rd.onload=e=>{ (INS_STATE[pref]=INS_STATE[pref]||[]).push({tipo:'video',src:e.target.result,nota:''}); insRender(pref); };
-  rd.readAsDataURL(file);
-  ev.target.value='';
 }
 function toggleSec(h){ h.classList.toggle('closed'); h.nextElementSibling.classList.toggle('hide'); }
 
@@ -764,7 +618,6 @@ function collect(pref){
   });
   ['fecha','fecha_pauta','fecha_testeo'].forEach(k=>{ const el=document.getElementById(pref+k); if(el) o[k]=el.value.trim(); });
   o.testeado = o.fecha_testeo ? 'si' : '';
-  o.insumos = (INS_STATE[pref] || []).slice();
   return o;
 }
 function markMissing(pref, data){
@@ -854,7 +707,7 @@ async function guardarEdicion(){
 }
 async function borrar(){
   if(!EDIT_PID) return;
-  if(!(await askConfirm('¿Eliminar este producto? No se puede deshacer.'))) return;
+  if(!confirm('¿Eliminar este producto? No se puede deshacer.')) return;
   try{ await fetch(API+'/'+encodeURIComponent(EDIT_PID),{method:'DELETE'}); await load(); toast('Producto eliminado'); cerrar(); }
   catch(e){ alert('Error al eliminar: '+e.message); }
 }
@@ -875,208 +728,12 @@ function showTab(t){
   if(t==='optim') loadOptim();
 }
 function prodSub(which){
-  _activeSub = which;
   $('#ppanel-lista').style.display = which==='lista'?'':'none';
   $('#ppanel-add').style.display = which==='add'?'':'none';
-  $('#ppanel-posibles').style.display = which==='posibles'?'':'none';
-  $('#ppanel-investigar').style.display = which==='investigar'?'':'none';
   $('#psub-lista').classList.toggle('active',which==='lista');
   $('#psub-add').classList.toggle('active',which==='add');
-  $('#psub-posibles').classList.toggle('active',which==='posibles');
-  $('#psub-invest').classList.toggle('active',which==='investigar');
   if(which==='lista') load();
-  if(which==='posibles') loadPosibles();
-  if(which==='investigar') loadInvest();
 }
-
-// ─── Posibles productos / Productos a investigar (tableros ligeros, guardado permanente) ───
-let POSIBLES=[], INVEST=[], _activeSub='lista', _pTimers={};
-const POS_FIELDS=[['nombre','Nombre'],['id_prod','ID'],['precio','Precio'],['competidores','Competidores'],['cant_prov','Cantidad proveedores']];
-// Modal para ver la imagen completa + info
-function mediaModal(src,title,infoHtml){
-  let ov=document.getElementById('mediamodal');
-  if(!ov){ ov=document.createElement('div'); ov.id='mediamodal'; document.body.appendChild(ov); }
-  ov.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:99998" onclick="mediaClose()"></div>
-    <div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:var(--bg2,#161a2b);border:1px solid var(--line);border-radius:16px;width:min(560px,94vw);max-height:92vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.6)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg2,#161a2b);z-index:1">
-        <span style="font-weight:700;font-size:15px;color:var(--ink)">${esc(title||'')}</span>
-        <button type="button" class="btn ghost" onclick="mediaClose()" style="padding:5px 12px">✕ Cerrar</button>
-      </div>
-      <div style="padding:16px 18px">
-        <img src="${src}" style="width:100%;border-radius:12px;background:#000;display:block">
-        ${infoHtml?`<div style="margin-top:15px">${infoHtml}</div>`:''}
-      </div>
-    </div>`;
-  ov.style.display='block';
-}
-function mediaClose(){ const m=document.getElementById('mediamodal'); if(m) m.remove(); }
-function invOpenImg(pid){ const p=INVEST.find(x=>x.pid===pid); if(!p||!p.foto) return;
-  const info = p.nota ? `<div style="font-size:13.5px;color:var(--ink);white-space:pre-wrap;line-height:1.6"><div style="color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</div>${esc(p.nota)}</div>` : '<div style="color:var(--sub);font-size:13px">Sin notas.</div>';
-  mediaModal(p.foto, 'Producto a investigar', info);
-}
-function posOpenImg(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p||!p.foto) return;
-  const rows=[['Nombre',p.nombre],['ID',p.id_prod],['Precio',p.precio],['Competidores',p.competidores],['Cantidad proveedores',p.cant_prov]].filter(r=>r[1]&&String(r[1]).trim());
-  let info='';
-  if(rows.length) info+='<div style="display:grid;grid-template-columns:auto 1fr;gap:7px 16px;font-size:13.5px;align-items:baseline">'+rows.map(r=>`<div style="color:var(--muted);font-weight:600">${r[0]}</div><div style="color:var(--ink);font-weight:600">${esc(r[1])}</div>`).join('')+'</div>';
-  if(p.nota) info+=`<div style="margin-top:14px;font-size:13.5px;color:var(--ink);white-space:pre-wrap;line-height:1.6"><div style="color:var(--muted);font-weight:700;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px">Notas</div>${esc(p.nota)}</div>`;
-  if(!info) info='<div style="color:var(--sub);font-size:13px">Sin datos cargados todavía.</div>';
-  mediaModal(p.foto, p.nombre||'Posible producto', info);
-}
-// blob/File → dataURL comprimido (JPEG ~1200px)
-function _imgData(blob, cb){
-  const img=new Image(), url=URL.createObjectURL(blob);
-  img.onload=()=>{ let w=img.width,h=img.height,max=1200; if(w>max||h>max){ if(w>h){h=Math.round(h*max/w);w=max;} else {w=Math.round(w*max/h);h=max;} }
-    const c=document.createElement('canvas'); c.width=w;c.height=h; c.getContext('2d').drawImage(img,0,0,w,h); URL.revokeObjectURL(url); cb(c.toDataURL('image/jpeg',0.72)); };
-  img.onerror=()=>{ URL.revokeObjectURL(url); toast('No pude leer la imagen'); };
-  img.src=url;
-}
-// Lee una imagen del portapapeles (clic derecho → Copiar imagen)
-async function _readClipImg(){
-  try{ const items=await navigator.clipboard.read(); for(const it of items){ const t=it.types.find(x=>x.startsWith('image/')); if(t) return await it.getType(t); } }catch(e){}
-  return null;
-}
-async function loadPosibles(){ try{ POSIBLES=await fetch('/api/posibles').then(r=>r.json()); if(!Array.isArray(POSIBLES)) POSIBLES=[]; }catch(e){ POSIBLES=[]; } renderPosibles(); }
-async function loadInvest(){ try{ INVEST=await fetch('/api/investigar').then(r=>r.json()); if(!Array.isArray(INVEST)) INVEST=[]; }catch(e){ INVEST=[]; } renderInvest(); }
-let _posOpen=null;
-const _DKIN='width:100%;background:var(--bg3);border:1px solid var(--line);border-radius:9px;color:var(--ink);padding:8px 10px;font:500 12.5px "Inter";outline:none';
-let _posQ='';
-function renderPosibles(){
-  const g=$('#posgrid'); if(!g) return;
-  if(!POSIBLES.length){ g.innerHTML='<div class="empty"><div class="big">💡</div>Todavía no hay posibles productos.<br>Tocá "➕ Agregar posible", abrí la tarjeta y pegá la imagen (clic derecho → Copiar imagen → 📋 Pegar).</div>'; return; }
-  const _q=(_posQ||'').toLowerCase().trim();
-  const LIST = _q ? POSIBLES.filter(p=>[p.nombre,p.id_prod,p.precio,p.competidores,p.cant_prov,p.nota].some(v=>String(v||'').toLowerCase().includes(_q))) : POSIBLES;
-  if(!LIST.length){ g.innerHTML='<div class="empty">Sin resultados para "'+esc(_q)+'".</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;align-items:start">${LIST.map(p=>{
-    const open=(_posOpen===p.pid), est=p.estado||'';
-    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':(est==='noencontrado'?'border:1.5px solid var(--amber)':''));
-    const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
-                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>'
-                 : est==='noencontrado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--amber);color:#3d2a05;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🔎 No encontrado</span>' : '';
-    const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
-    const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
-    const neStyle = est==='noencontrado' ? 'background:var(--amber);border-color:var(--amber);color:#3d2a05' : '';
-    return `
-    <div class="card" style="padding:12px;margin:0;${cardStyle}">
-      <div style="position:relative;margin-bottom:9px">
-        <div onclick="${p.foto?`posOpenImg('${p.pid}')`:''}" title="${p.foto?'Ver imagen y datos':''}" style="height:175px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
-          ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br><span style="opacity:.7">abrí y pegá</span></span>'}
-        </div>
-        ${corner}
-      </div>
-      <div onclick="posToggle('${p.pid}')" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:3px 2px">
-        <span style="flex:1;font-weight:600;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre?esc(p.nombre):'<span style="color:var(--sub);font-weight:500">Sin nombre</span>'}</span>
-        <span style="color:var(--sub);font-size:13px">${open?'▲':'▼'}</span>
-      </div>
-      <div id="posdet_${p.pid}" style="display:${open?'block':'none'};margin-top:9px;border-top:1px solid var(--line);padding-top:11px">
-        <input placeholder="Nombre" value="${esc(p.nombre||'')}" oninput="posEdit('${p.pid}','nombre',this.value)" style="${_DKIN};font-weight:600;margin-bottom:8px">
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="posPaste('${p.pid}')">📋 Pegar</button>
-          <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('posf_${p.pid}').click()">📁 Subir</button>
-          <input type="file" id="posf_${p.pid}" accept="image/*" style="display:none" onchange="posUpload(event,'${p.pid}')">
-        </div>
-        ${POS_FIELDS.filter(([k])=>k!=='nombre').map(([k,lbl])=>`<input placeholder="${lbl}" value="${esc(p[k]||'')}" oninput="posEdit('${p.pid}','${k}',this.value)" style="${_DKIN};margin-bottom:7px">`).join('')}
-        <textarea placeholder="Notas" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px';posEdit('${p.pid}','nota',this.value)" style="${_DKIN};font:400 13px 'Inter',system-ui,sans-serif;min-height:58px;overflow:hidden;resize:none;margin-bottom:9px">${esc(p.nota||'')}</textarea>
-        <div style="display:flex;gap:6px;margin-bottom:9px;flex-wrap:wrap">
-          <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${apStyle}" onclick="posEstado('${p.pid}','aprobado')">✅ Aprobar</button>
-          <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${dsStyle}" onclick="posEstado('${p.pid}','descartado')">🚫 Descartar</button>
-          <button type="button" class="btn ghost" style="flex:1;min-width:92px;padding:5px;font-size:11px;${neStyle}" onclick="posEstado('${p.pid}','noencontrado')">🔎 No encontrado</button>
-          <button type="button" class="btn danger" style="padding:5px 10px;font-size:11px" onclick="posDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
-        </div>
-        <button type="button" class="btn" style="width:100%;padding:7px;font-size:12.5px" onclick="posSaveNow('${p.pid}')">💾 Guardar</button>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
-  g.querySelectorAll('textarea').forEach(t=>{ t.style.height='auto'; t.style.height=t.scrollHeight+'px'; });
-}
-async function posEstado(pid,val){
-  const p=POSIBLES.find(x=>x.pid===pid); if(!p) return;
-  p.estado = (p.estado===val) ? '' : val;
-  renderPosibles(); posSave(pid);
-  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':p.estado==='noencontrado'?'🔎 No encontrado':'Estado quitado');
-}
-function posToggle(pid){ _posOpen = (_posOpen===pid) ? null : pid; renderPosibles(); }
-async function posSaveNow(pid){ await posSave(pid); toast('✓ Guardado'); }
-async function posAdd(foto){
-  try{ const r=await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:foto?{foto}:{}})}); const o=await r.json().catch(()=>null); await loadPosibles(); if(o&&o.pid){ _posOpen=o.pid; renderPosibles(); } toast('✓ Agregado'); }
-  catch(e){ toast('Error: '+e.message); }
-}
-// Varias imágenes → una tarjeta por cada una
-async function posAddImages(ev){
-  const files=[...ev.target.files]; ev.target.value=''; if(!files.length) return;
-  toast('Subiendo '+files.length+' imagen'+(files.length>1?'es':'')+'…');
-  for(const f of files){ const d=await new Promise(res=>_imgData(f,res)); try{ await fetch('/api/posibles',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:d}})}); }catch(e){} }
-  await loadPosibles(); toast('✓ '+files.length+' producto'+(files.length>1?'s':'')+' agregado'+(files.length>1?'s':''));
-}
-function posEdit(pid,key,val){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; p[key]=val; clearTimeout(_pTimers['p'+pid]); _pTimers['p'+pid]=setTimeout(()=>posSave(pid),700); }
-async function posSave(pid){ const p=POSIBLES.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
-async function posPaste(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); toast('✓ Imagen pegada'); } }); }
-function posUpload(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>{ const p=POSIBLES.find(x=>x.pid===pid); if(p){ p.foto=d; renderPosibles(); posSave(pid); } }); ev.target.value=''; }
-async function posDel(pid){ if(!(await askConfirm('¿Eliminar este posible producto? Se borra del todo (no es lo mismo que descartar).'))) return; try{ await fetch('/api/posibles/'+encodeURIComponent(pid),{method:'DELETE'}); await loadPosibles(); toast('Eliminado'); }catch(e){} }
-function renderInvest(){
-  const g=$('#invgrid'); if(!g) return;
-  if(!INVEST.length){ g.innerHTML='<div class="empty"><div class="big">🔍</div>Todavía no hay productos a investigar.<br>Copiá una imagen (clic derecho → Copiar imagen) y tocá "📋 Pegar imagen", o pegá con Ctrl+V.</div>'; return; }
-  g.innerHTML=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;align-items:start">${INVEST.map(p=>{
-    const est=p.estado||'';
-    const cardStyle = est==='aprobado' ? 'border:1.5px solid var(--green)' : (est==='descartado'?'opacity:.6':(est==='noencontrado'?'border:1.5px solid var(--amber)':''));
-    const corner = est==='aprobado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--green);color:#08331f;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">✅ Aprobado</span>'
-                 : est==='descartado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--red);color:#fff;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🚫 Descartado</span>'
-                 : est==='noencontrado' ? '<span style="position:absolute;top:8px;right:8px;background:var(--amber);color:#3d2a05;font-size:10px;font-weight:800;padding:3px 9px;border-radius:20px">🔎 No encontrado</span>' : '';
-    const apStyle = est==='aprobado' ? 'background:var(--green);border-color:var(--green);color:#08331f' : '';
-    const dsStyle = est==='descartado' ? 'background:var(--red);border-color:var(--red);color:#fff' : '';
-    const neStyle = est==='noencontrado' ? 'background:var(--amber);border-color:var(--amber);color:#3d2a05' : '';
-    return `
-    <div class="card" style="padding:10px;margin:0;${cardStyle}">
-      <div style="position:relative;margin-bottom:9px">
-        <div onclick="${p.foto?`invOpenImg('${p.pid}')`:''}" style="height:180px;border-radius:10px;background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:${p.foto?'zoom-in':'default'};overflow:hidden">
-          ${p.foto?`<img src="${p.foto}" style="width:100%;height:100%;object-fit:cover">`:'<span style="color:var(--sub);font-size:12.5px;text-align:center;line-height:1.5">Sin imagen<br>usá 📋 Pegar</span>'}
-        </div>
-        ${corner}
-      </div>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="invPasteCard('${p.pid}')">📋 Pegar</button>
-        <button type="button" class="btn ghost" style="flex:1;padding:5px;font-size:12px" onclick="document.getElementById('invf_${p.pid}').click()">📁 Subir</button>
-        <input type="file" id="invf_${p.pid}" accept="image/*" style="display:none" onchange="invUploadCard(event,'${p.pid}')">
-      </div>
-      <input placeholder="Nota (dónde lo viste…)" value="${esc(p.nota||'')}" oninput="invEdit('${p.pid}',this.value)" style="${_DKIN}">
-      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
-        <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${apStyle}" onclick="invEstado('${p.pid}','aprobado')">✅ Aprobar</button>
-        <button type="button" class="btn ghost" style="flex:1;min-width:70px;padding:5px;font-size:11px;${dsStyle}" onclick="invEstado('${p.pid}','descartado')">🚫 Descartar</button>
-        <button type="button" class="btn ghost" style="flex:1;min-width:92px;padding:5px;font-size:11px;${neStyle}" onclick="invEstado('${p.pid}','noencontrado')">🔎 No encontrado</button>
-        <button type="button" class="btn danger" style="padding:5px 10px;font-size:11px" onclick="invDel('${p.pid}')" title="Eliminar del todo">🗑️</button>
-      </div>
-    </div>`;
-  }).join('')}</div>`;
-}
-async function invEstado(pid,val){
-  const p=INVEST.find(x=>x.pid===pid); if(!p) return;
-  p.estado = (p.estado===val) ? '' : val;
-  renderInvest(); invSave(pid);
-  toast(p.estado==='aprobado'?'✅ Aprobado':p.estado==='descartado'?'🚫 Descartado':p.estado==='noencontrado'?'🔎 No encontrado':'Estado quitado');
-}
-async function invAddBlank(){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:'',nota:''}})}); await loadInvest(); toast('✓ Producto agregado'); }catch(e){ toast('Error: '+e.message); } }
-async function invAddImages(ev){
-  const files=[...ev.target.files]; ev.target.value=''; if(!files.length) return;
-  toast('Subiendo '+files.length+' imagen'+(files.length>1?'es':'')+'…');
-  for(const f of files){ const d=await new Promise(res=>_imgData(f,res)); try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto:d,nota:''}})}); }catch(e){} }
-  await loadInvest(); toast('✓ '+files.length+' producto'+(files.length>1?'s':'')+' agregado'+(files.length>1?'s':''));
-}
-function invSetFoto(pid,dataUrl){ const p=INVEST.find(x=>x.pid===pid); if(p){ p.foto=dataUrl; renderInvest(); invSave(pid); toast('✓ Imagen pegada'); } }
-async function invPasteCard(pid){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen).'); return; } _imgData(blob, d=>invSetFoto(pid,d)); }
-function invUploadCard(ev,pid){ const f=ev.target.files[0]; if(f) _imgData(f, d=>invSetFoto(pid,d)); ev.target.value=''; }
-async function invAdd(foto){ try{ await fetch('/api/investigar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({data:{foto,nota:''}})}); await loadInvest(); toast('✓ Imagen agregada'); }catch(e){ toast('Error: '+e.message); } }
-async function invPaste(){ const blob=await _readClipImg(); if(!blob){ toast('Copiá una imagen primero (clic derecho → Copiar imagen) y volvé a tocar 📋.'); return; } _imgData(blob, d=>invAdd(d)); }
-function invUpload(ev){ [...ev.target.files].forEach(f=>_imgData(f, d=>invAdd(d))); ev.target.value=''; }
-function invEdit(pid,val){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; p.nota=val; clearTimeout(_pTimers['i'+pid]); _pTimers['i'+pid]=setTimeout(()=>invSave(pid),700); }
-async function invSave(pid){ const p=INVEST.find(x=>x.pid===pid); if(!p) return; const {pid:_i,_created,_updated,...data}=p; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({data})}); }catch(e){} }
-async function invDel(pid){ if(!(await askConfirm('¿Eliminar este producto a investigar?'))) return; try{ await fetch('/api/investigar/'+encodeURIComponent(pid),{method:'DELETE'}); await loadInvest(); toast('Eliminado'); }catch(e){} }
-// Pegar con Ctrl+V dentro de estas pestañas
-document.addEventListener('paste', ev=>{
-  const vl=$('#view-list'); if(!vl || vl.style.display==='none') return;
-  if(_activeSub!=='posibles' && _activeSub!=='investigar') return;
-  const tag=(ev.target&&ev.target.tagName)||''; if(tag==='INPUT'||tag==='TEXTAREA') return; // no interferir al escribir
-  const items=(ev.clipboardData&&ev.clipboardData.items)||[];
-  for(const it of items){ if(it.type&&it.type.startsWith('image/')){ const blob=it.getAsFile(); if(blob){ ev.preventDefault(); _imgData(blob, d=>{ _activeSub==='investigar'?invAdd(d):posAdd(d); }); } return; } }
-});
 function prodPanel(which){
   $('#prodpanel-pagina').style.display = which==='pagina'?'':'none';
   $('#prodpanel-anuncios').style.display = which==='anuncios'?'':'none';
@@ -1982,7 +1639,19 @@ async function saveScr(){
 let ANG=[];        // [{t:'texto', c:booleano, cats:[]}]
 let ANG_BOX=null;  // id del contenedor donde se pinta
 let ANG_WITHCATS=false; // mostrar chips de categoría (solo en Scripts y anuncios)
-function angInit(p, boxId, withCats){ ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : []; ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; }); ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender(); }
+function angInit(p, boxId, withCats){
+  ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : [];
+  // Si el checklist está vacío pero el producto tiene ángulos escritos en el campo de texto
+  // (formulario del producto → "Ángulos de venta"), se siembran acá para no perderlos.
+  if(!ANG.length && p && p.angulos_venta && String(p.angulos_venta).trim()){
+    ANG = String(p.angulos_venta).split(/\r?\n/)
+      .map(l=>l.replace(/^\s*\d+[\.\)\-]\s*/,'').trim())
+      .filter(Boolean)
+      .map(t=>({t,c:false,cats:[]}));
+  }
+  ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; });
+  ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender();
+}
 function angSync(){ ANG.forEach((a,i)=>{ const t=document.getElementById('ang_t_'+i); const c=document.getElementById('ang_c_'+i); if(t)a.t=t.value; if(c)a.c=c.checked; }); }
 function angRender(){
   const box=document.getElementById(ANG_BOX); if(!box) return;

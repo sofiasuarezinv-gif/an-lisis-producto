@@ -1982,19 +1982,7 @@ async function saveScr(){
 let ANG=[];        // [{t:'texto', c:booleano, cats:[]}]
 let ANG_BOX=null;  // id del contenedor donde se pinta
 let ANG_WITHCATS=false; // mostrar chips de categoría (solo en Scripts y anuncios)
-function angInit(p, boxId, withCats){
-  ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : [];
-  // Si el checklist está vacío pero el producto tiene ángulos escritos en el campo de texto
-  // (formulario del producto → "Ángulos de venta"), se siembran acá para no perderlos.
-  if(!ANG.length && p && p.angulos_venta && String(p.angulos_venta).trim()){
-    ANG = String(p.angulos_venta).split(/\r?\n/)
-      .map(l=>l.replace(/^\s*\d+[\.\)\-]\s*/,"").trim())
-      .filter(Boolean)
-      .map(t=>({t,c:false,cats:[]}));
-  }
-  ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; });
-  ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender();
-}
+function angInit(p, boxId, withCats){ ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : []; ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; }); ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender(); }
 function angSync(){ ANG.forEach((a,i)=>{ const t=document.getElementById('ang_t_'+i); const c=document.getElementById('ang_c_'+i); if(t)a.t=t.value; if(c)a.c=c.checked; }); }
 function angRender(){
   const box=document.getElementById(ANG_BOX); if(!box) return;

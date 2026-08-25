@@ -1653,16 +1653,14 @@ async function saveDev(){
   data.tiempo_anuncios = progOf(TIME.anuncios);
   data.meta_pagina = TIME.meta.pagina||'';
   data.meta_anuncios = TIME.meta.anuncios||'';
-  // ── CANDADO ANTI-BORRADO: si el editor se cargó vacío (cold-start), NO pisar datos buenos del servidor con un formulario vacío ──
-  const _cScore = o => { let n=0;
-    (Array.isArray(o.dev_blocks)?o.dev_blocks:[]).forEach(b=>{ if(String(b.value||'').trim()) n++; });
-    ['scr_emocional','scr_comparacion','scr_beneficios','scr_testimonio','scr_validacion'].forEach(k=>{ if(String(o[k]||'').trim()) n++; });
-    if(Array.isArray(o.angulos)) n += o.angulos.filter(a=>String(a.t||'').trim()).length;
-    return n; };
-  if(_cScore(data) <= 1){
+  // ── CANDADO ANTI-BORRADO: si el formulario está prácticamente vacío (cold-start) NO pisar los datos buenos del servidor.
+  // Se mide por BLOQUES de página y ÁNGULOS (que son los que el bug borra). ──
+  const _blk = o => (Array.isArray(o.dev_blocks)?o.dev_blocks:[]).filter(b=>String(b.value||'').trim()).length;
+  const _ang = o => Array.isArray(o.angulos)?o.angulos.filter(a=>String(a.t||'').trim()).length:0;
+  if(_blk(data) <= 1 && _ang(data) === 0){
     let sp=null, verified=false;
     try{ const fresh=await fetch(API).then(r=>r.json()); if(Array.isArray(fresh)){ sp=fresh.find(x=>x.pid===DEV_CUR); verified=true; } }catch(e){}
-    if(!verified || (sp && _cScore(sp) >= 3)){
+    if(!verified || (sp && (_blk(sp) >= 3 || _ang(sp) >= 3))){
       const m=$('#dev-msg'); if(m){ m.className='msg err'; m.textContent='⚠ No se guardó (protección): el editor se cargó vacío. Recargá con Ctrl+F5, abrí el producto de nuevo y volvé a intentar.'; }
       alert('⚠ NO se guardó, para proteger tu información.\n\nEl editor está vacío (seguramente el servidor estaba dormido al abrir). Si guardaba, borraba todo lo que ya tenías.\n\n👉 Recargá con Ctrl+F5, abrí el producto de nuevo (ya con la info) y ahí sí editá y guardá.');
       return;

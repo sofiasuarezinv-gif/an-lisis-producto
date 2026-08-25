@@ -36,6 +36,12 @@ async function ghApi(method, repoPath, body, allow404) {
   if (!r.ok) throw new Error(`GitHub ${method} ${repoPath} → ${r.status} ${await r.text()}`);
   return r.json();
 }
+// Leer archivos GRANDES (>1 MB): la Contents API devuelve content vacío; la Blobs API sí trae el contenido (hasta 100 MB).
+async function ghBlob(sha) {
+  const r = await fetch(`https://api.github.com/repos/${GH.repo}/git/blobs/${sha}`, { headers: ghHeaders() });
+  if (!r.ok) throw new Error(`GitHub blob ${sha} → ${r.status}`);
+  return r.json();
+}
 const b64 = (s) => Buffer.from(s, 'utf8').toString('base64');
 const newId = () => Date.now().toString(36) + crypto.randomBytes(4).toString('hex');
 const recJson = (r) => JSON.stringify({ data: r.data, created_at: r.created_at, updated_at: r.updated_at });
@@ -56,7 +62,9 @@ async function ensureLoaded(coll) {
         if (item.type === 'file' && item.name.endsWith('.json')) {
           try {
             const f = await ghApi('GET', item.path);
-            const rec = JSON.parse(Buffer.from(f.content, 'base64').toString('utf8'));
+            let content = f.content;
+            if ((!content || !content.trim()) && f.sha) { const blob = await ghBlob(f.sha); content = blob.content; }
+            const rec = JSON.parse(Buffer.from(content || '', 'base64').toString('utf8'));
             cache[coll][item.name.replace(/\.json$/, '')] = { ...rec, _sha: f.sha };
           } catch (e) { console.error('leer', item.name, e.message); }
         }

@@ -1562,7 +1562,8 @@ async function openDevEditor(pid){
     </div>
     <div id="scrpanel-scripts">
       <div class="subtabs mini">
-        <div class="subtab active" id="scrcat-angulos" onclick="scrCat('angulos')">🎯 Ángulos de venta</div>`+
+        <div class="subtab active" id="scrcat-angulos" onclick="scrCat('angulos')">🎯 Ángulos de venta</div>
+        <div class="subtab" id="scrcat-benven" onclick="scrCat('benven')">⚖️ Beneficios y desventajas</div>`+
         SCR_CATS.map((c)=>`<div class="subtab" id="scrcat-${c.key}" onclick="scrCat('${c.key}')">${c.icon} ${c.label}</div>`).join('')+`
       </div>
       <div class="devpanel">
@@ -1570,6 +1571,14 @@ async function openDevEditor(pid){
           <div class="devblock-h" style="margin-bottom:12px"><span>🎯 Ángulos de venta</span></div>
           <div id="scr-ang-list"></div>
           <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
+        </div>
+        <div class="scr-catpanel" id="scrcp-benven" style="display:none">
+          <div class="devblock-h" style="margin-bottom:12px"><span>✅ Beneficios</span></div>
+          <div id="bv-list-ben"></div>
+          <button class="btn ghost" type="button" onclick="benvenAdd('ben')" style="margin-top:8px">➕ Agregar beneficio</button>
+          <div class="devblock-h" style="margin:24px 0 12px"><span>⚠️ Desventajas</span></div>
+          <div id="bv-list-desv"></div>
+          <button class="btn ghost" type="button" onclick="benvenAdd('desv')" style="margin-top:8px">➕ Agregar desventaja</button>
         </div>`+
       SCR_CATS.map((c)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:none">
           <div id="scrangs-${c.key}"></div>
@@ -1615,6 +1624,7 @@ async function openDevEditor(pid){
   renderScrVars();
   renderCapVars();
   angInit(p,'scr-ang-list',true);
+  benvenInit(p);
   renderTiempo('pagina'); renderTiempo('anuncios');
   updateProgress(); applyDevFilter(); updateCopySel();
 }
@@ -1638,6 +1648,7 @@ async function saveDev(){
   DBLK.forEach(b=>{ if(/^dev_/.test(b.id)) data[b.id]=String(b.value||''); }); // compat campos estándar
   data.dev_estado = ddVal('d_dev_estado');
   data.angulos = angCollect();
+  data.beneficios_desventajas = benvenCollect();
   // Anuncios (scripts + variaciones)
   SCR_CATS.forEach(c=>{ const el=document.getElementById('s_scr_'+c.key); if(el) data['scr_'+c.key]=el.value.trim(); });
   data.scr_estado = data.dev_estado;
@@ -1867,13 +1878,14 @@ function scrSub(which){
 }
 function scrCat(key){
   if(typeof angScriptSync==='function') angScriptSync();   // guardar los scripts de la categoría actual antes de cambiar
-  const keys=['angulos'].concat(SCR_CATS.map(c=>c.key));
+  const keys=['angulos','benven'].concat(SCR_CATS.map(c=>c.key));
   keys.forEach(k=>{
     const cp=document.getElementById('scrcp-'+k); if(cp) cp.style.display = k===key?'block':'none';
     const tab=document.getElementById('scrcat-'+k); if(tab) tab.classList.toggle('active',k===key);
-    if(k!=='angulos' && k!==key){ const sb=document.getElementById('scrangs-'+k); if(sb) sb.innerHTML=''; } // vaciar las demás para no duplicar ids de textarea
+    if(k!=='angulos' && k!=='benven' && k!==key){ const sb=document.getElementById('scrangs-'+k); if(sb) sb.innerHTML=''; } // vaciar las demás para no duplicar ids de textarea
   });
-  if(key!=='angulos') scrRenderCatAngs(key);
+  if(key==='benven'){ if(typeof benvenRender==='function') benvenRender(); }
+  else if(key!=='angulos') scrRenderCatAngs(key);
 }
 function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+catKey); return el?el.value:''; }
 function scrLabel(catKey){ const c=SCR_CATS.find(x=>x.key===catKey); return c?c.label:catKey; }
@@ -2032,6 +2044,34 @@ function scrRenderCatAngs(key){
       <textarea id="angscr_${o.i}" oninput="angScriptTouch(${o.i})" placeholder="Escribí acá el script de testeo para este ángulo…" style="min-height:150px">${esc(o.a.script||'')}</textarea>
     </div>`; }).join('');
 }
+
+// ─── Beneficios y desventajas (por producto) ───
+let BENVEN={ben:[],desv:[]};
+function benvenInit(p){
+  const b=(p && p.beneficios_desventajas && typeof p.beneficios_desventajas==='object') ? p.beneficios_desventajas : {};
+  BENVEN={ ben: Array.isArray(b.ben)?b.ben.slice():[], desv: Array.isArray(b.desv)?b.desv.slice():[] };
+  benvenRender();
+}
+function benvenSync(){
+  ['ben','desv'].forEach(tp=>{ BENVEN[tp]=BENVEN[tp].map((_,i)=>{ const el=document.getElementById('bv_'+tp+'_'+i); return el?el.value:''; }); });
+}
+function benvenRender(){
+  ['ben','desv'].forEach(tp=>{
+    const box=document.getElementById('bv-list-'+tp); if(!box) return;
+    const arr=BENVEN[tp], word=tp==='ben'?'beneficio':'desventaja';
+    if(!arr.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:4px 2px 10px">Todavía no hay ${word}s. Agregá con el botón de abajo.</div>`; return; }
+    box.innerHTML=arr.map((t,i)=>`
+      <div class="ang-item"><div class="ang-row">
+        <input type="text" id="bv_${tp}_${i}" value="${esc(t||'')}" placeholder="${word.charAt(0).toUpperCase()+word.slice(1)} ${i+1}…">
+        <button class="cpy" type="button" title="Copiar" onclick="benvenCopy('${tp}',${i})">📋</button>
+        <button class="cpy" type="button" title="Quitar" onclick="benvenDel('${tp}',${i})">🗑️</button>
+      </div></div>`).join('');
+  });
+}
+function benvenAdd(tp){ benvenSync(); BENVEN[tp].push(''); benvenRender(); const el=document.getElementById('bv_'+tp+'_'+(BENVEN[tp].length-1)); if(el) el.focus(); }
+function benvenDel(tp,i){ benvenSync(); BENVEN[tp].splice(i,1); benvenRender(); }
+function benvenCopy(tp,i){ const el=document.getElementById('bv_'+tp+'_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function benvenCollect(){ benvenSync(); return { ben:BENVEN.ben.map(t=>String(t||'').trim()).filter(Boolean), desv:BENVEN.desv.map(t=>String(t||'').trim()).filter(Boolean) }; }
 
 // init
 limpiar(); showTab('list');

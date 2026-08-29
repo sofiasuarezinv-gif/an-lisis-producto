@@ -1573,12 +1573,14 @@ async function openDevEditor(pid){
           <button class="btn ghost" type="button" onclick="angAdd()" style="margin-top:8px">➕ Agregar ángulo</button>
         </div>
         <div class="scr-catpanel" id="scrcp-benven" style="display:none">
-          <div class="devblock-h" style="margin-bottom:12px"><span>✅ Beneficios</span></div>
-          <div id="bv-list-ben"></div>
-          <button class="btn ghost" type="button" onclick="benvenAdd('ben')" style="margin-top:8px">➕ Agregar beneficio</button>
-          <div class="devblock-h" style="margin:24px 0 12px"><span>⚠️ Desventajas</span></div>
-          <div id="bv-list-desv"></div>
-          <button class="btn ghost" type="button" onclick="benvenAdd('desv')" style="margin-top:8px">➕ Agregar desventaja</button>
+          <div class="devblock" style="margin-bottom:16px">
+            <div class="devblock-h"><span>✅ Beneficios</span><button class="cpy" type="button" title="Copiar" onclick="benvenCopy('ben')">📋</button></div>
+            <textarea id="bv_ben" placeholder="Escribí acá todos los beneficios del producto (podés poner varios, uno por línea)…" style="min-height:170px"></textarea>
+          </div>
+          <div class="devblock">
+            <div class="devblock-h"><span>⚠️ Desventajas</span><button class="cpy" type="button" title="Copiar" onclick="benvenCopy('desv')">📋</button></div>
+            <textarea id="bv_desv" placeholder="Escribí acá todas las desventajas del producto…" style="min-height:170px"></textarea>
+          </div>
         </div>`+
       SCR_CATS.map((c)=>`<div class="scr-catpanel" id="scrcp-${c.key}" style="display:none">
           <div id="scrangs-${c.key}"></div>
@@ -2045,33 +2047,24 @@ function scrRenderCatAngs(key){
     </div>`; }).join('');
 }
 
-// ─── Beneficios y desventajas (por producto) ───
-let BENVEN={ben:[],desv:[]};
+// ─── Beneficios y desventajas (por producto) — un solo cuadro cada uno ───
+let BENVEN={ben:'',desv:''};
+function _bvStr(v){ return Array.isArray(v)?v.join('\n'):(typeof v==='string'?v:''); }
 function benvenInit(p){
   const b=(p && p.beneficios_desventajas && typeof p.beneficios_desventajas==='object') ? p.beneficios_desventajas : {};
-  BENVEN={ ben: Array.isArray(b.ben)?b.ben.slice():[], desv: Array.isArray(b.desv)?b.desv.slice():[] };
+  BENVEN={ ben:_bvStr(b.ben), desv:_bvStr(b.desv) };
   benvenRender();
 }
 function benvenSync(){
-  ['ben','desv'].forEach(tp=>{ BENVEN[tp]=BENVEN[tp].map((_,i)=>{ const el=document.getElementById('bv_'+tp+'_'+i); return el?el.value:''; }); });
+  const eb=document.getElementById('bv_ben'); if(eb) BENVEN.ben=eb.value;
+  const ed=document.getElementById('bv_desv'); if(ed) BENVEN.desv=ed.value;
 }
 function benvenRender(){
-  ['ben','desv'].forEach(tp=>{
-    const box=document.getElementById('bv-list-'+tp); if(!box) return;
-    const arr=BENVEN[tp], word=tp==='ben'?'beneficio':'desventaja';
-    if(!arr.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:4px 2px 10px">Todavía no hay ${word}s. Agregá con el botón de abajo.</div>`; return; }
-    box.innerHTML=arr.map((t,i)=>`
-      <div class="ang-item"><div class="ang-row">
-        <input type="text" id="bv_${tp}_${i}" value="${esc(t||'')}" placeholder="${word.charAt(0).toUpperCase()+word.slice(1)} ${i+1}…">
-        <button class="cpy" type="button" title="Copiar" onclick="benvenCopy('${tp}',${i})">📋</button>
-        <button class="cpy" type="button" title="Quitar" onclick="benvenDel('${tp}',${i})">🗑️</button>
-      </div></div>`).join('');
-  });
+  const eb=document.getElementById('bv_ben'); if(eb) eb.value=BENVEN.ben||'';
+  const ed=document.getElementById('bv_desv'); if(ed) ed.value=BENVEN.desv||'';
 }
-function benvenAdd(tp){ benvenSync(); BENVEN[tp].push(''); benvenRender(); const el=document.getElementById('bv_'+tp+'_'+(BENVEN[tp].length-1)); if(el) el.focus(); }
-function benvenDel(tp,i){ benvenSync(); BENVEN[tp].splice(i,1); benvenRender(); }
-function benvenCopy(tp,i){ const el=document.getElementById('bv_'+tp+'_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
-function benvenCollect(){ benvenSync(); return { ben:BENVEN.ben.map(t=>String(t||'').trim()).filter(Boolean), desv:BENVEN.desv.map(t=>String(t||'').trim()).filter(Boolean) }; }
+function benvenCopy(tp){ const el=document.getElementById('bv_'+tp); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
+function benvenCollect(){ benvenSync(); return { ben:String(BENVEN.ben||'').trim(), desv:String(BENVEN.desv||'').trim() }; }
 
 // init
 limpiar(); showTab('list');

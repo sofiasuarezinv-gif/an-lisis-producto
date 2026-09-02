@@ -2007,7 +2007,10 @@ let ANG_BOX=null;  // id del contenedor donde se pinta
 let ANG_WITHCATS=false; // mostrar chips de categoría (solo en Scripts y anuncios)
 function angInit(p, boxId, withCats){
   ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : [];
-  ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; if(typeof a.script!=='string') a.script=''; });
+  ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; if(typeof a.script!=='string') a.script='';
+    // Varias opciones de script por ángulo: migrar el script único viejo a la primera opción.
+    if(!Array.isArray(a.scripts)) a.scripts = (a.script && a.script.trim()) ? [a.script] : [''];
+    if(!a.scripts.length) a.scripts=['']; });
   // Migrar los scripts por-categoría antiguos (scr_*) al primer ángulo de esa categoría (una sola vez), para no perderlos.
   if(p){ SCR_CATS.forEach(c=>{ const ex=String(p['scr_'+c.key]||'').trim(); if(!ex) return; const f=ANG.find(a=>(a.cats||[]).includes(c.key)); if(f && !String(f.script||'').trim()) f.script=ex; }); }
   ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender();
@@ -2031,19 +2034,32 @@ function angToggleCat(i,key){ angSync(); const a=ANG[i]; if(!Array.isArray(a.cat
 function angAdd(){ angSync(); ANG.push({t:'',c:false,cats:[]}); angRender(); const el=document.getElementById('ang_t_'+(ANG.length-1)); if(el) el.focus(); }
 function angDel(i){ angSync(); ANG.splice(i,1); angRender(); }
 function angCopy(i){ const el=document.getElementById('ang_t_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
-function angScriptSync(){ ANG.forEach((a,i)=>{ const el=document.getElementById('angscr_'+i); if(el) a.script=el.value; }); }
-function angScriptTouch(i){ const el=document.getElementById('angscr_'+i); if(el && ANG[i]) ANG[i].script=el.value; }
-function angCollect(){ angSync(); angScriptSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c,cats:Array.isArray(a.cats)?a.cats.slice():[],script:String(a.script||'')})).filter(a=>a.t); }
+function angScriptSync(){ ANG.forEach((a,i)=>{ if(!Array.isArray(a.scripts)) a.scripts=[a.script||'']; a.scripts.forEach((s,j)=>{ const el=document.getElementById('angscr_'+i+'_'+j); if(el) a.scripts[j]=el.value; }); a.script=a.scripts.filter(x=>String(x||'').trim()).join('\n\n──────────\n\n'); }); }
+function angScriptTouch(i,j){ const el=document.getElementById('angscr_'+i+'_'+j); if(el && ANG[i]){ if(!Array.isArray(ANG[i].scripts)) ANG[i].scripts=['']; ANG[i].scripts[j]=el.value; } }
+function angScriptAdd(i){ angScriptSync(); if(!Array.isArray(ANG[i].scripts)) ANG[i].scripts=['']; ANG[i].scripts.push(''); scrRenderCatAngs(window._scrCatKey); const b=document.getElementById('angscr_'+i+'_'+(ANG[i].scripts.length-1)); if(b) b.focus(); }
+function angScriptDel(i,j){ angScriptSync(); if(Array.isArray(ANG[i].scripts)){ ANG[i].scripts.splice(j,1); if(!ANG[i].scripts.length) ANG[i].scripts=['']; } scrRenderCatAngs(window._scrCatKey); }
+function angCollect(){ angSync(); angScriptSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c,cats:Array.isArray(a.cats)?a.cats.slice():[],scripts:(Array.isArray(a.scripts)?a.scripts:[]).map(s=>String(s||'')).filter(s=>s.trim()),script:String(a.script||'')})).filter(a=>a.t); }
 function scrRenderCatAngs(key){
+  window._scrCatKey=key;
   const box=document.getElementById('scrangs-'+key); if(!box) return;
   angSync();
-  // Una cajita de script por CADA ángulo marcado con esta categoría (guarda el índice global en ANG)
+  // Una o varias cajitas de script por CADA ángulo marcado con esta categoría (índice global en ANG)
   var items=[]; ANG.forEach(function(a,i){ if((a.cats||[]).includes(key) && String(a.t||'').trim()) items.push({a:a,i:i}); });
   if(!items.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:8px 2px">Todavía no hay ángulos en esta categoría. Marcá ángulos con esta categoría en la pestaña 🎯 Ángulos de venta y acá aparece una cajita de script para cada uno.</div>`; return; }
-  box.innerHTML=`<div style="color:var(--sub);font-size:12px;margin:2px 2px 10px">Un script por cada ángulo de esta categoría:</div>`+items.map(function(o){ return `
-    <div class="devblock" style="margin-bottom:12px">
-      <div class="devblock-h"><span>🎯 ${o.a.c?'✅ ':''}${esc(o.a.t)}</span><button class="cpy" type="button" title="Copiar" onclick="scrCopy('angscr_${o.i}')">📋</button></div>
-      <textarea id="angscr_${o.i}" oninput="angScriptTouch(${o.i})" placeholder="Escribí acá el script de testeo para este ángulo…" style="min-height:150px">${esc(o.a.script||'')}</textarea>
+  box.innerHTML=`<div style="color:var(--sub);font-size:12px;margin:2px 2px 10px">Uno o varios scripts por cada ángulo de esta categoría (podés agregar más opciones):</div>`+items.map(function(o){
+    if(!Array.isArray(o.a.scripts)||!o.a.scripts.length) o.a.scripts=[o.a.script||''];
+    var boxes=o.a.scripts.map(function(s,j){ return `
+      <div style="margin-bottom:8px">
+        <textarea id="angscr_${o.i}_${j}" oninput="angScriptTouch(${o.i},${j})" placeholder="Opción ${j+1}…" style="min-height:130px">${esc(s||'')}</textarea>
+        <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:3px">
+          <button class="cpy" type="button" title="Copiar" onclick="scrCopy('angscr_${o.i}_${j}')">📋</button>
+          ${o.a.scripts.length>1?`<button class="cpy" type="button" title="Quitar esta opción" onclick="angScriptDel(${o.i},${j})">🗑️</button>`:''}
+        </div>
+      </div>`; }).join('');
+    return `<div class="devblock" style="margin-bottom:12px">
+      <div class="devblock-h"><span>🎯 ${o.a.c?'✅ ':''}${esc(o.a.t)}</span></div>
+      ${boxes}
+      <button class="btn ghost" type="button" onclick="angScriptAdd(${o.i})" style="margin-top:2px;padding:7px 14px;font-size:13px">➕ Agregar opción</button>
     </div>`; }).join('');
 }
 

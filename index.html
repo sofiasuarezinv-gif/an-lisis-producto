@@ -1889,7 +1889,18 @@ function scrCat(key){
   if(key==='benven'){ if(typeof benvenRender==='function') benvenRender(); }
   else if(key!=='angulos') scrRenderCatAngs(key);
 }
-function scrCurScriptText(catKey){ const el=document.getElementById('s_scr_'+catKey); return el?el.value:''; }
+function scrCurScriptText(catKey){
+  if(typeof angScriptSync==='function') angScriptSync();
+  var parts=[];
+  if(Array.isArray(ANG)) ANG.forEach(function(a){
+    if((a.cats||[]).includes(catKey) && a.scriptsByCat && Array.isArray(a.scriptsByCat[catKey])){
+      var arr=a.scriptsByCat[catKey].filter(function(s){return String(s||'').trim();});
+      if(arr.length){ var t=String(a.t||'').trim(); parts.push((t?('🎯 '+t+'\n'):'')+arr.join('\n\n')); }
+    }
+  });
+  if(parts.length) return parts.join('\n\n──────────\n\n');
+  var el=document.getElementById('s_scr_'+catKey); return el?el.value:'';
+}
 function scrLabel(catKey){ const c=SCR_CATS.find(x=>x.key===catKey); return c?c.label:catKey; }
 function scrSyncVars(){
   SCR_VARS.forEach((g,gi)=>{
@@ -2008,9 +2019,12 @@ let ANG_WITHCATS=false; // mostrar chips de categoría (solo en Scripts y anunci
 function angInit(p, boxId, withCats){
   ANG = Array.isArray(p.angulos) ? JSON.parse(JSON.stringify(p.angulos)) : [];
   ANG.forEach(a=>{ if(!Array.isArray(a.cats)) a.cats=[]; if(typeof a.script!=='string') a.script='';
-    // Varias opciones de script por ángulo: migrar el script único viejo a la primera opción.
-    if(!Array.isArray(a.scripts)) a.scripts = (a.script && a.script.trim()) ? [a.script] : [''];
-    if(!a.scripts.length) a.scripts=['']; });
+    // Scripts POR CATEGORÍA: cada (ángulo, categoría) tiene sus propias opciones (NO se duplican entre secciones).
+    if(!a.scriptsByCat || typeof a.scriptsByCat!=='object' || Array.isArray(a.scriptsByCat)){
+      a.scriptsByCat={};
+      const old = Array.isArray(a.scripts) ? a.scripts.filter(x=>String(x||'').trim()) : (a.script&&a.script.trim()?[a.script]:[]);
+      if(old.length){ const fc=(a.cats&&a.cats.length)?a.cats[0]:null; if(fc) a.scriptsByCat[fc]=old.slice(); } // el viejo (agnóstico) va SOLO a la 1ra categoría
+    } });
   // Migrar los scripts por-categoría antiguos (scr_*) al primer ángulo de esa categoría (una sola vez), para no perderlos.
   if(p){ SCR_CATS.forEach(c=>{ const ex=String(p['scr_'+c.key]||'').trim(); if(!ex) return; const f=ANG.find(a=>(a.cats||[]).includes(c.key)); if(f && !String(f.script||'').trim()) f.script=ex; }); }
   ANG_BOX=boxId; ANG_WITHCATS=!!withCats; angRender();
@@ -2034,32 +2048,34 @@ function angToggleCat(i,key){ angSync(); const a=ANG[i]; if(!Array.isArray(a.cat
 function angAdd(){ angSync(); ANG.push({t:'',c:false,cats:[]}); angRender(); const el=document.getElementById('ang_t_'+(ANG.length-1)); if(el) el.focus(); }
 function angDel(i){ angSync(); ANG.splice(i,1); angRender(); }
 function angCopy(i){ const el=document.getElementById('ang_t_'+i); if(!el) return; const t=el.value||''; if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(()=>toast('✓ Copiado'),()=>fallbackCopy(t)); else fallbackCopy(t); }
-function angScriptSync(){ ANG.forEach((a,i)=>{ if(!Array.isArray(a.scripts)) a.scripts=[a.script||'']; a.scripts.forEach((s,j)=>{ const el=document.getElementById('angscr_'+i+'_'+j); if(el) a.scripts[j]=el.value; }); a.script=a.scripts.filter(x=>String(x||'').trim()).join('\n\n──────────\n\n'); }); }
-function angScriptTouch(i,j){ const el=document.getElementById('angscr_'+i+'_'+j); if(el && ANG[i]){ if(!Array.isArray(ANG[i].scripts)) ANG[i].scripts=['']; ANG[i].scripts[j]=el.value; } }
-function angScriptAdd(i){ angScriptSync(); if(!Array.isArray(ANG[i].scripts)) ANG[i].scripts=['']; ANG[i].scripts.push(''); scrRenderCatAngs(window._scrCatKey); const b=document.getElementById('angscr_'+i+'_'+(ANG[i].scripts.length-1)); if(b) b.focus(); }
-function angScriptDel(i,j){ angScriptSync(); if(Array.isArray(ANG[i].scripts)){ ANG[i].scripts.splice(j,1); if(!ANG[i].scripts.length) ANG[i].scripts=['']; } scrRenderCatAngs(window._scrCatKey); }
-function angCollect(){ angSync(); angScriptSync(); return ANG.map(a=>({t:String(a.t||'').trim(),c:!!a.c,cats:Array.isArray(a.cats)?a.cats.slice():[],scripts:(Array.isArray(a.scripts)?a.scripts:[]).map(s=>String(s||'')).filter(s=>s.trim()),script:String(a.script||'')})).filter(a=>a.t); }
+function angScriptSync(){ ANG.forEach((a,i)=>{ if(!a.scriptsByCat||typeof a.scriptsByCat!=='object') a.scriptsByCat={}; Object.keys(a.scriptsByCat).forEach(cat=>{ const arr=a.scriptsByCat[cat]; if(!Array.isArray(arr)) return; arr.forEach((s,j)=>{ const el=document.getElementById('angscr_'+i+'_'+cat+'_'+j); if(el) arr[j]=el.value; }); }); a.script=Object.values(a.scriptsByCat).reduce((acc,arr)=>acc.concat(Array.isArray(arr)?arr:[]),[]).filter(x=>String(x||'').trim()).join('\n\n──────────\n\n'); }); }
+function angScriptTouch(i,cat,j){ const el=document.getElementById('angscr_'+i+'_'+cat+'_'+j); if(el && ANG[i]){ if(!ANG[i].scriptsByCat) ANG[i].scriptsByCat={}; if(!Array.isArray(ANG[i].scriptsByCat[cat])) ANG[i].scriptsByCat[cat]=['']; ANG[i].scriptsByCat[cat][j]=el.value; } }
+function angScriptAdd(i,cat){ angScriptSync(); if(!ANG[i].scriptsByCat) ANG[i].scriptsByCat={}; if(!Array.isArray(ANG[i].scriptsByCat[cat])) ANG[i].scriptsByCat[cat]=['']; ANG[i].scriptsByCat[cat].push(''); scrRenderCatAngs(cat); const arr=ANG[i].scriptsByCat[cat]; const b=document.getElementById('angscr_'+i+'_'+cat+'_'+(arr.length-1)); if(b) b.focus(); }
+function angScriptDel(i,cat,j){ angScriptSync(); const arr=ANG[i].scriptsByCat&&ANG[i].scriptsByCat[cat]; if(Array.isArray(arr)){ arr.splice(j,1); if(!arr.length) ANG[i].scriptsByCat[cat]=['']; } scrRenderCatAngs(cat); }
+function angCollect(){ angSync(); angScriptSync(); return ANG.map(a=>{ const sbc={}; const src=(a.scriptsByCat&&typeof a.scriptsByCat==='object')?a.scriptsByCat:{}; Object.keys(src).forEach(cat=>{ const arr=(Array.isArray(src[cat])?src[cat]:[]).map(s=>String(s||'')).filter(s=>s.trim()); if(arr.length) sbc[cat]=arr; }); return {t:String(a.t||'').trim(),c:!!a.c,cats:Array.isArray(a.cats)?a.cats.slice():[],scriptsByCat:sbc,script:String(a.script||'')}; }).filter(a=>a.t); }
 function scrRenderCatAngs(key){
   window._scrCatKey=key;
   const box=document.getElementById('scrangs-'+key); if(!box) return;
   angSync();
-  // Una o varias cajitas de script por CADA ángulo marcado con esta categoría (índice global en ANG)
+  // Scripts de ESTA categoría por cada ángulo marcado con ella (cada categoría es independiente).
   var items=[]; ANG.forEach(function(a,i){ if((a.cats||[]).includes(key) && String(a.t||'').trim()) items.push({a:a,i:i}); });
   if(!items.length){ box.innerHTML=`<div style="color:var(--sub);font-size:13px;padding:8px 2px">Todavía no hay ángulos en esta categoría. Marcá ángulos con esta categoría en la pestaña 🎯 Ángulos de venta y acá aparece una cajita de script para cada uno.</div>`; return; }
-  box.innerHTML=`<div style="color:var(--sub);font-size:12px;margin:2px 2px 10px">Uno o varios scripts por cada ángulo de esta categoría (podés agregar más opciones):</div>`+items.map(function(o){
-    if(!Array.isArray(o.a.scripts)||!o.a.scripts.length) o.a.scripts=[o.a.script||''];
-    var boxes=o.a.scripts.map(function(s,j){ return `
+  box.innerHTML=`<div style="color:var(--sub);font-size:12px;margin:2px 2px 10px">Scripts de ESTA categoría por cada ángulo (cada categoría tiene su propio script; podés agregar más opciones):</div>`+items.map(function(o){
+    if(!o.a.scriptsByCat||typeof o.a.scriptsByCat!=='object') o.a.scriptsByCat={};
+    if(!Array.isArray(o.a.scriptsByCat[key])||!o.a.scriptsByCat[key].length) o.a.scriptsByCat[key]=[''];
+    var arr=o.a.scriptsByCat[key];
+    var boxes=arr.map(function(s,j){ return `
       <div style="margin-bottom:8px">
-        <textarea id="angscr_${o.i}_${j}" oninput="angScriptTouch(${o.i},${j})" placeholder="Opción ${j+1}…" style="min-height:130px">${esc(s||'')}</textarea>
+        <textarea id="angscr_${o.i}_${key}_${j}" oninput="angScriptTouch(${o.i},'${key}',${j})" placeholder="Opción ${j+1}…" style="min-height:130px">${esc(s||'')}</textarea>
         <div style="display:flex;gap:6px;justify-content:flex-end;margin-top:3px">
-          <button class="cpy" type="button" title="Copiar" onclick="scrCopy('angscr_${o.i}_${j}')">📋</button>
-          ${o.a.scripts.length>1?`<button class="cpy" type="button" title="Quitar esta opción" onclick="angScriptDel(${o.i},${j})">🗑️</button>`:''}
+          <button class="cpy" type="button" title="Copiar" onclick="scrCopy('angscr_${o.i}_${key}_${j}')">📋</button>
+          ${arr.length>1?`<button class="cpy" type="button" title="Quitar esta opción" onclick="angScriptDel(${o.i},'${key}',${j})">🗑️</button>`:''}
         </div>
       </div>`; }).join('');
     return `<div class="devblock" style="margin-bottom:12px">
       <div class="devblock-h"><span>🎯 ${o.a.c?'✅ ':''}${esc(o.a.t)}</span></div>
       ${boxes}
-      <button class="btn ghost" type="button" onclick="angScriptAdd(${o.i})" style="margin-top:2px;padding:7px 14px;font-size:13px">➕ Agregar opción</button>
+      <button class="btn ghost" type="button" onclick="angScriptAdd(${o.i},'${key}')" style="margin-top:2px;padding:7px 14px;font-size:13px">➕ Agregar opción</button>
     </div>`; }).join('');
 }
 

@@ -2023,7 +2023,8 @@ function angInit(p, boxId, withCats){
     if(!a.scriptsByCat || typeof a.scriptsByCat!=='object' || Array.isArray(a.scriptsByCat)){
       a.scriptsByCat={};
       const old = Array.isArray(a.scripts) ? a.scripts.filter(x=>String(x||'').trim()) : (a.script&&a.script.trim()?[a.script]:[]);
-      if(old.length){ const fc=(a.cats&&a.cats.length)?a.cats[0]:null; if(fc) a.scriptsByCat[fc]=old.slice(); } // el viejo (agnóstico) va SOLO a la 1ra categoría
+      // El script viejo (compartido entre categorías) se copia a TODAS las categorías del ángulo como punto de partida — ya editable por separado. Así no desaparece de ninguna sección.
+      if(old.length && Array.isArray(a.cats)){ a.cats.forEach(function(cat){ if(!Array.isArray(a.scriptsByCat[cat])) a.scriptsByCat[cat]=old.slice(); }); }
     } });
   // Migrar los scripts por-categoría antiguos (scr_*) al primer ángulo de esa categoría (una sola vez), para no perderlos.
   if(p){ SCR_CATS.forEach(c=>{ const ex=String(p['scr_'+c.key]||'').trim(); if(!ex) return; const f=ANG.find(a=>(a.cats||[]).includes(c.key)); if(f && !String(f.script||'').trim()) f.script=ex; }); }
